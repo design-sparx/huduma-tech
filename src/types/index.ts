@@ -30,6 +30,13 @@ export interface ServiceRequest {
   createdAt: Date;
   scheduledDate?: Date;
   completedAt?: Date;
+  provider?: {
+    name: string;
+    phone: string;
+    email: string;
+    rating: number;
+    verified?: boolean;
+  };
 }
 
 export type ServiceCategory =
@@ -120,4 +127,75 @@ export interface ProviderCardProps {
   onContact?: (provider: ServiceProvider) => void;
   onMessage?: (provider: ServiceProvider) => void;
   showActions?: boolean;
+}
+
+// Request Form Types
+export interface RequestFormData {
+  title: string;
+  description: string;
+  category: ServiceCategory | "";
+  location: string;
+  urgency: "low" | "medium" | "high" | "emergency";
+  budget: number;
+}
+
+export interface RequestFormErrors {
+  title?: string;
+  description?: string;
+  category?: string;
+  location?: string;
+  budget?: string;
+  submit?: string;
+}
+
+export interface RequestValidationResult {
+  isValid: boolean;
+  errors: RequestFormErrors;
+}
+
+// Budget Suggestion Types
+export interface BudgetRange {
+  min: number;
+  typical: number;
+  max: number;
+}
+
+export interface BudgetSuggestions {
+  [key: string]: BudgetRange;
+}
+
+// Service Request Enhancement Types
+export interface RequestCreationResult {
+  success: boolean;
+  request?: ServiceRequest;
+  error?: string;
+}
+
+export interface RequestDraft {
+  title: string;
+  description: string;
+  category: ServiceCategory | "";
+  location: string;
+  urgency: "low" | "medium" | "high" | "emergency";
+  budget: number;
+  savedAt: number;
+}
+
+// Error Types
+export interface ServiceError {
+  message: string;
+  code?: string;
+  details?: any;
+}
+
+// Success Types
+export interface RequestSuccessData {
+  id: string;
+  title: string;
+  category: string;
+  location: string;
+  budget: number;
+  urgency: string;
+  status: string;
+  createdAt: Date;
 }
