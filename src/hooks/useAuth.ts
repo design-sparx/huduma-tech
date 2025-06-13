@@ -1,4 +1,6 @@
-import { useEffect,useState } from "react";
+"use client";
+
+import { useEffect, useState } from "react";
 
 import { getCurrentUser } from "@/lib/services/auth";
 import { supabase } from "@/lib/supabase";
