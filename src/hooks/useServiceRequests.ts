@@ -1,4 +1,6 @@
-import { useEffect,useState } from "react";
+"use client";
+
+import { useEffect, useState } from "react";
 
 import { getUserServiceRequests } from "@/lib/services/requests";
 

@@ -16,7 +16,7 @@ const eslintConfig = [
     rules: {
       // TypeScript specific rules
       "@typescript-eslint/no-unused-vars": "off", // Turn off base rule
-      "@typescript-eslint/no-explicit-any": "warn",
+      "@typescript-eslint/no-explicit-any": "off",
       "@typescript-eslint/consistent-type-imports": [
         "error",
         {

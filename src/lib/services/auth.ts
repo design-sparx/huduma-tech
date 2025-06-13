@@ -27,22 +27,8 @@ export async function signUp(
       throw error;
     }
 
-    // Create user profile
-    if (data.user) {
-      const { error: profileError } = await supabase.from("users").insert([
-        {
-          id: data.user.id,
-          name: userData.name,
-          email,
-          phone: userData.phone,
-          location: userData.location,
-        },
-      ]);
-
-      if (profileError) {
-        console.error("Error creating user profile:", profileError);
-      }
-    }
+    // Note: User profile is automatically created by database trigger
+    // No need to manually insert into users table
 
     return data;
   } catch (error) {
@@ -120,5 +106,34 @@ export async function getUserProfile(userId: string) {
   } catch (error) {
     console.error("Error in getUserProfile:", error);
     return null;
+  }
+}
+
+export async function updateUserProfile(
+  userId: string,
+  updates: {
+    name?: string;
+    phone?: string;
+    location?: string;
+    avatar?: string;
+  }
+) {
+  try {
+    const { data, error } = await supabase
+      .from("users")
+      .update(updates)
+      .eq("id", userId)
+      .select()
+      .single();
+
+    if (error) {
+      console.error("Error updating user profile:", error);
+      throw error;
+    }
+
+    return data;
+  } catch (error) {
+    console.error("Error in updateUserProfile:", error);
+    throw error;
   }
 }
