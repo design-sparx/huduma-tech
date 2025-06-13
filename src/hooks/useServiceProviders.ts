@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import { getServiceProviders } from "@/lib/services/providers";
 
@@ -10,19 +10,78 @@ interface UseServiceProvidersProps {
   category?: ServiceCategory;
   location?: string;
   searchTerm?: string;
+  minRating?: number;
+  maxRate?: number;
+  sortBy?: "rating" | "hourly_rate" | "total_jobs" | "name";
+  sortOrder?: "asc" | "desc";
+  debounceMs?: number;
+  enabled?: boolean; // Allow disabling the hook
 }
 
-export function useServiceProviders(filters?: UseServiceProvidersProps) {
+interface UseServiceProvidersReturn {
+  providers: ServiceProvider[];
+  loading: boolean;
+  error: string | null;
+  refetch: () => void;
+  hasResults: boolean;
+  totalCount: number;
+}
+
+export function useServiceProviders(
+  filters?: UseServiceProvidersProps
+): UseServiceProvidersReturn {
   const [providers, setProviders] = useState<ServiceProvider[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const category = filters?.category;
-  const location = filters?.location;
-  const searchTerm = filters?.searchTerm;
+  // Ref to track the latest request to prevent race conditions
+  const latestRequestId = useRef(0);
+  const debounceTimer = useRef<NodeJS.Timeout>(null);
+
+  // Extract and memoize filter values to prevent unnecessary re-renders
+  const filterValues = useMemo(
+    () => ({
+      category: filters?.category,
+      location: filters?.location,
+      searchTerm: filters?.searchTerm,
+      minRating: filters?.minRating,
+      maxRate: filters?.maxRate,
+      sortBy: filters?.sortBy || "rating",
+      sortOrder: filters?.sortOrder || "desc",
+      debounceMs: filters?.debounceMs ?? 300,
+      enabled: filters?.enabled ?? true,
+    }),
+    [
+      filters?.category,
+      filters?.location,
+      filters?.searchTerm,
+      filters?.minRating,
+      filters?.maxRate,
+      filters?.sortBy,
+      filters?.sortOrder,
+      filters?.debounceMs,
+      filters?.enabled,
+    ]
+  );
 
   useEffect(() => {
-    let isCancelled = false; // Cleanup flag to prevent state updates if component unmounts
+    // Don't fetch if disabled
+    if (!filterValues.enabled) {
+      return;
+    }
+
+    // Clear existing timer
+    if (debounceTimer.current) {
+      clearTimeout(debounceTimer.current);
+    }
+
+    // Increment request ID for this request
+    const requestId = ++latestRequestId.current;
+
+    // Determine if we should debounce (only for search terms)
+    const shouldDebounce =
+      filterValues.searchTerm && filterValues.searchTerm.trim().length > 0;
+    const delay = shouldDebounce ? filterValues.debounceMs : 0;
 
     const fetchProviders = async () => {
       try {
@@ -30,55 +89,90 @@ export function useServiceProviders(filters?: UseServiceProvidersProps) {
         setError(null);
 
         const data = await getServiceProviders({
-          category,
-          location,
-          searchTerm,
+          category: filterValues.category,
+          location: filterValues.location,
+          searchTerm: filterValues.searchTerm,
+          minRating: filterValues.minRating,
+          maxRate: filterValues.maxRate,
+          sortBy: filterValues.sortBy,
+          sortOrder: filterValues.sortOrder,
         });
 
-        // Only update state if the effect hasn't been cancelled
-        if (!isCancelled) {
+        // Only update state if this is still the latest request
+        if (requestId === latestRequestId.current) {
           setProviders(data);
         }
       } catch (err: any) {
-        if (!isCancelled) {
-          setError(
-            `Failed to fetch service providers: ${err.message || err.toString()}`
-          );
+        // Only update error state if this is still the latest request
+        if (requestId === latestRequestId.current) {
+          setError(err.message || "Failed to fetch service providers");
           // console.error("Error fetching providers:", err);
         }
       } finally {
-        if (!isCancelled) {
+        // Only update loading state if this is still the latest request
+        if (requestId === latestRequestId.current) {
           setLoading(false);
         }
       }
     };
 
-    fetchProviders();
+    // Set up debounced fetch
+    debounceTimer.current = setTimeout(fetchProviders, delay);
 
     // Cleanup function
     return () => {
-      isCancelled = true;
+      if (debounceTimer.current) {
+        clearTimeout(debounceTimer.current);
+      }
     };
-  }, [category, location, searchTerm]); // Depend on primitive values, not the object
+  }, [filterValues]);
 
+  // Manual refetch function (no debounce)
   const refetch = () => {
+    if (!filterValues.enabled) return;
+
+    const requestId = ++latestRequestId.current;
+
     setLoading(true);
     setError(null);
 
-    getServiceProviders({ category, location, searchTerm })
+    getServiceProviders({
+      category: filterValues.category,
+      location: filterValues.location,
+      searchTerm: filterValues.searchTerm,
+      minRating: filterValues.minRating,
+      maxRate: filterValues.maxRate,
+      sortBy: filterValues.sortBy,
+      sortOrder: filterValues.sortOrder,
+    })
       .then(data => {
-        setProviders(data);
+        if (requestId === latestRequestId.current) {
+          setProviders(data);
+        }
       })
       .catch(err => {
-        setError(
-          `Failed to fetch service providers: ${err.message || err.toString()}`
-        );
-        console.error("Error fetching providers:", err);
+        if (requestId === latestRequestId.current) {
+          setError(err.message || "Failed to fetch service providers");
+          // console.error("Error fetching providers:", err);
+        }
       })
       .finally(() => {
-        setLoading(false);
+        if (requestId === latestRequestId.current) {
+          setLoading(false);
+        }
       });
   };
 
-  return { providers, loading, error, refetch };
+  // Computed values
+  const hasResults = providers.length > 0;
+  const totalCount = providers.length;
+
+  return {
+    providers,
+    loading,
+    error,
+    refetch,
+    hasResults,
+    totalCount,
+  };
 }
