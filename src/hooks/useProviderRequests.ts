@@ -71,26 +71,36 @@ export function useProviderRequests(options: UseProviderRequestsOptions = {}) {
 
     try {
       setError(null);
+      setLoading(true);
 
       // Get available requests that match provider's services
       const allAvailable = await getAvailableRequests();
       const availableRequests = allAvailable.filter(
         request =>
           provider.services.includes(request.category) &&
-          request.status === "pending"
+          request.status === "pending" &&
+          !request.providerId // Only show unassigned requests
       );
 
-      // Get provider's accepted/active requests
+      // Get provider's requests by searching for their ID in provider_id field
       const myRequestsFilters: RequestFilters = {
-        status: ["accepted", "in_progress", "completed"],
+        // Don't filter by status here, get all requests assigned to this provider
       };
 
       const allRequests = await searchRequests(myRequestsFilters);
+
+      // Filter requests where THIS provider is assigned
       const myRequests = allRequests.filter(
         request => request.providerId === provider.id
       );
 
+      console.log("Debug - Provider ID:", provider.id);
+      console.log("Debug - All requests:", allRequests.length);
+      console.log("Debug - My requests:", myRequests.length);
+      console.log("Debug - Available requests:", availableRequests.length);
+
       // Calculate stats
+      const acceptedRequests = myRequests.filter(r => r.status === "accepted");
       const activeJobs = myRequests.filter(
         r => r.status === "accepted" || r.status === "in_progress"
       ).length;
@@ -108,7 +118,7 @@ export function useProviderRequests(options: UseProviderRequestsOptions = {}) {
         myRequests,
         stats: {
           totalAvailable: availableRequests.length,
-          totalAccepted: myRequests.length,
+          totalAccepted: acceptedRequests.length,
           activeJobs,
           completedJobs,
           totalEarnings,
@@ -132,40 +142,17 @@ export function useProviderRequests(options: UseProviderRequestsOptions = {}) {
       setUpdating(prev => new Set(prev).add(requestId));
 
       try {
+        console.log(
+          "Accepting request:",
+          requestId,
+          "for provider:",
+          provider.id
+        );
+
         await updateServiceRequestStatus(requestId, "accepted", provider.id);
 
-        // Update local state
-        setData(prev => {
-          const request = prev.availableRequests.find(r => r.id === requestId);
-          if (!request) return prev;
-
-          const updatedRequest = {
-            ...request,
-            status: "accepted" as const,
-            providerId: provider.id,
-            provider: {
-              name: provider.name,
-              phone: provider.phone,
-              email: provider.email,
-              rating: provider.rating,
-              verified: provider.verified,
-            },
-          };
-
-          return {
-            ...prev,
-            availableRequests: prev.availableRequests.filter(
-              r => r.id !== requestId
-            ),
-            myRequests: [...prev.myRequests, updatedRequest],
-            stats: {
-              ...prev.stats,
-              totalAvailable: prev.stats.totalAvailable - 1,
-              totalAccepted: prev.stats.totalAccepted + 1,
-              activeJobs: prev.stats.activeJobs + 1,
-            },
-          };
-        });
+        // Refresh data after successful update
+        await fetchRequests();
 
         return true;
       } catch (err) {
@@ -179,7 +166,7 @@ export function useProviderRequests(options: UseProviderRequestsOptions = {}) {
         });
       }
     },
-    [provider, user]
+    [provider, user, fetchRequests]
   );
 
   // Update request status
@@ -190,41 +177,12 @@ export function useProviderRequests(options: UseProviderRequestsOptions = {}) {
       setUpdating(prev => new Set(prev).add(requestId));
 
       try {
+        console.log("Updating request status:", requestId, "to", status);
+
         await updateServiceRequestStatus(requestId, status);
 
-        // Update local state
-        setData(prev => {
-          const updatedMyRequests = prev.myRequests.map(req => {
-            if (req.id === requestId) {
-              return { ...req, status };
-            }
-            return req;
-          });
-
-          // Recalculate stats
-          const activeJobs = updatedMyRequests.filter(
-            r => r.status === "accepted" || r.status === "in_progress"
-          ).length;
-
-          const completedJobs = updatedMyRequests.filter(
-            r => r.status === "completed"
-          ).length;
-
-          const totalEarnings = updatedMyRequests
-            .filter(r => r.status === "completed")
-            .reduce((sum, r) => sum + r.budget, 0);
-
-          return {
-            ...prev,
-            myRequests: updatedMyRequests,
-            stats: {
-              ...prev.stats,
-              activeJobs,
-              completedJobs,
-              totalEarnings,
-            },
-          };
-        });
+        // Refresh data after successful update
+        await fetchRequests();
 
         return true;
       } catch (err) {
@@ -238,7 +196,7 @@ export function useProviderRequests(options: UseProviderRequestsOptions = {}) {
         });
       }
     },
-    [provider, user]
+    [provider, user, fetchRequests]
   );
 
   // Get requests by status
