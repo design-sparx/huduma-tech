@@ -1,6 +1,6 @@
 import { supabase } from "@/lib/supabase";
 
-import type { ServiceCategory } from "@/types";
+import type { ServiceCategory, ServiceProvider } from "@/types";
 
 interface ServiceProviderFilters {
   category?: ServiceCategory;
@@ -83,18 +83,37 @@ export async function getServiceProviders(filters?: ServiceProviderFilters) {
     const { data, error } = await query;
 
     if (error) {
-      // console.error("Error fetching service providers:", error);
+      console.error("Error fetching service providers:", error);
       throw new Error(`Database error: ${error.message}`);
     }
 
-    return data || [];
+    // Transform data to match ServiceProvider interface
+    return (data || []).map(item => ({
+      id: item.id,
+      name: item.name,
+      email: item.email,
+      phone: item.phone,
+      services: item.services,
+      location: item.location,
+      rating: item.rating,
+      totalJobs: item.total_jobs,
+      verified: item.verified,
+      avatar: item.avatar,
+      hourlyRate: item.hourly_rate,
+      bio: item.bio,
+      experienceYears: item.experience_years,
+      createdAt: item.created_at ? new Date(item.created_at) : undefined,
+      updatedAt: item.updated_at ? new Date(item.updated_at) : undefined,
+    })) as ServiceProvider[];
   } catch (error) {
-    // console.error("Error in getServiceProviders:", error);
+    console.error("Error in getServiceProviders:", error);
     throw error;
   }
 }
 
-export async function getServiceProviderById(id: string) {
+export async function getServiceProviderById(
+  id: string
+): Promise<ServiceProvider | null> {
   try {
     const { data, error } = await supabase
       .from("service_providers")
@@ -103,16 +122,211 @@ export async function getServiceProviderById(id: string) {
       .single();
 
     if (error) {
-      // console.error("Error fetching service provider:", error);
+      console.error("Error fetching service provider:", error);
       if (error.code === "PGRST116") {
         throw new Error("Service provider not found");
       }
       throw new Error(`Database error: ${error.message}`);
     }
 
-    return data;
+    if (!data) return null;
+
+    // Transform data to match ServiceProvider interface
+    return {
+      id: data.id,
+      name: data.name,
+      email: data.email,
+      phone: data.phone,
+      services: data.services,
+      location: data.location,
+      rating: data.rating,
+      totalJobs: data.total_jobs,
+      verified: data.verified,
+      avatar: data.avatar,
+      hourlyRate: data.hourly_rate,
+      bio: data.bio,
+      experienceYears: data.experience_years,
+      createdAt: data.created_at ? new Date(data.created_at) : undefined,
+      updatedAt: data.updated_at ? new Date(data.updated_at) : undefined,
+    } as ServiceProvider;
   } catch (error) {
-    // console.error("Error in getServiceProviderById:", error);
+    console.error("Error in getServiceProviderById:", error);
+    throw error;
+  }
+}
+
+export async function getServiceProviderByEmail(
+  email: string
+): Promise<ServiceProvider | null> {
+  try {
+    const { data, error } = await supabase
+      .from("service_providers")
+      .select("*")
+      .eq("email", email)
+      .single();
+
+    if (error) {
+      if (error.code === "PGRST116") {
+        return null; // Provider not found
+      }
+      console.error("Error fetching service provider by email:", error);
+      throw new Error(`Database error: ${error.message}`);
+    }
+
+    if (!data) return null;
+
+    // Transform data to match ServiceProvider interface
+    return {
+      id: data.id,
+      name: data.name,
+      email: data.email,
+      phone: data.phone,
+      services: data.services,
+      location: data.location,
+      rating: data.rating,
+      totalJobs: data.total_jobs,
+      verified: data.verified,
+      avatar: data.avatar,
+      hourlyRate: data.hourly_rate,
+      bio: data.bio,
+      experienceYears: data.experience_years,
+      createdAt: data.created_at ? new Date(data.created_at) : undefined,
+      updatedAt: data.updated_at ? new Date(data.updated_at) : undefined,
+    } as ServiceProvider;
+  } catch (error) {
+    console.error("Error in getServiceProviderByEmail:", error);
+    throw error;
+  }
+}
+
+export async function createServiceProvider(
+  provider: Omit<ServiceProvider, "id" | "createdAt" | "updatedAt">
+) {
+  try {
+    const { data, error } = await supabase
+      .from("service_providers")
+      .insert([
+        {
+          name: provider.name,
+          email: provider.email,
+          phone: provider.phone,
+          services: provider.services,
+          location: provider.location,
+          rating: provider.rating || 0,
+          total_jobs: provider.totalJobs || 0,
+          verified: provider.verified || false,
+          avatar: provider.avatar,
+          hourly_rate: provider.hourlyRate,
+          bio: provider.bio,
+          experience_years: provider.experienceYears || 0,
+        },
+      ])
+      .select()
+      .single();
+
+    if (error) {
+      console.error("Error creating service provider:", error);
+      throw error;
+    }
+
+    // Transform data to match ServiceProvider interface
+    return {
+      id: data.id,
+      name: data.name,
+      email: data.email,
+      phone: data.phone,
+      services: data.services,
+      location: data.location,
+      rating: data.rating,
+      totalJobs: data.total_jobs,
+      verified: data.verified,
+      avatar: data.avatar,
+      hourlyRate: data.hourly_rate,
+      bio: data.bio,
+      experienceYears: data.experience_years,
+      createdAt: data.created_at ? new Date(data.created_at) : undefined,
+      updatedAt: data.updated_at ? new Date(data.updated_at) : undefined,
+    } as ServiceProvider;
+  } catch (error) {
+    console.error("Error in createServiceProvider:", error);
+    throw error;
+  }
+}
+
+export async function updateServiceProvider(
+  id: string,
+  updates: Partial<Omit<ServiceProvider, "id" | "createdAt" | "updatedAt">>
+) {
+  try {
+    const updateData: any = {};
+
+    if (updates.name !== undefined) updateData.name = updates.name;
+    if (updates.email !== undefined) updateData.email = updates.email;
+    if (updates.phone !== undefined) updateData.phone = updates.phone;
+    if (updates.services !== undefined) updateData.services = updates.services;
+    if (updates.location !== undefined) updateData.location = updates.location;
+    if (updates.rating !== undefined) updateData.rating = updates.rating;
+    if (updates.totalJobs !== undefined)
+      updateData.total_jobs = updates.totalJobs;
+    if (updates.verified !== undefined) updateData.verified = updates.verified;
+    if (updates.avatar !== undefined) updateData.avatar = updates.avatar;
+    if (updates.hourlyRate !== undefined)
+      updateData.hourly_rate = updates.hourlyRate;
+    if (updates.bio !== undefined) updateData.bio = updates.bio;
+    if (updates.experienceYears !== undefined)
+      updateData.experience_years = updates.experienceYears;
+
+    const { data, error } = await supabase
+      .from("service_providers")
+      .update(updateData)
+      .eq("id", id)
+      .select()
+      .single();
+
+    if (error) {
+      console.error("Error updating service provider:", error);
+      throw error;
+    }
+
+    // Transform data to match ServiceProvider interface
+    return {
+      id: data.id,
+      name: data.name,
+      email: data.email,
+      phone: data.phone,
+      services: data.services,
+      location: data.location,
+      rating: data.rating,
+      totalJobs: data.total_jobs,
+      verified: data.verified,
+      avatar: data.avatar,
+      hourlyRate: data.hourly_rate,
+      bio: data.bio,
+      experienceYears: data.experience_years,
+      createdAt: data.created_at ? new Date(data.created_at) : undefined,
+      updatedAt: data.updated_at ? new Date(data.updated_at) : undefined,
+    } as ServiceProvider;
+  } catch (error) {
+    console.error("Error in updateServiceProvider:", error);
+    throw error;
+  }
+}
+
+export async function deleteServiceProvider(id: string) {
+  try {
+    const { error } = await supabase
+      .from("service_providers")
+      .delete()
+      .eq("id", id);
+
+    if (error) {
+      console.error("Error deleting service provider:", error);
+      throw error;
+    }
+
+    return true;
+  } catch (error) {
+    console.error("Error in deleteServiceProvider:", error);
     throw error;
   }
 }
@@ -125,7 +339,7 @@ export async function getProviderStats() {
       .eq("verified", true);
 
     if (error) {
-      // console.error("Error fetching provider stats:", error);
+      console.error("Error fetching provider stats:", error);
       return {
         totalProviders: 0,
         totalJobs: 0,
@@ -181,6 +395,7 @@ export async function getProviderStats() {
       topServices,
     };
   } catch (error) {
+    console.error("Error in getProviderStats:", error);
     return {
       totalProviders: 0,
       totalJobs: 0,
@@ -188,7 +403,6 @@ export async function getProviderStats() {
       topLocations: [],
       topServices: [],
     };
-    throw new Error(`Error in getProviderStats: ${error}`);
   }
 }
 
@@ -203,14 +417,117 @@ export async function searchProvidersByService(service: string, limit = 10) {
       .limit(limit);
 
     if (error) {
-      // console.error("Error searching providers by service:", error);
+      console.error("Error searching providers by service:", error);
       return [];
     }
 
     return data || [];
   } catch (error) {
-    // console.error("Error in searchProvidersByService:", error);
+    console.error("Error in searchProvidersByService:", error);
     return [];
-    throw new Error(`Error in getProviderStats: ${error}`);
+  }
+}
+
+// Provider analytics functions
+export async function getProviderPerformanceStats(providerId: string) {
+  try {
+    // Get provider's request stats
+    const { data: requestStats, error: requestError } = await supabase
+      .from("service_requests")
+      .select("status, budget, created_at, completed_at")
+      .eq("provider_id", providerId);
+
+    if (requestError) {
+      console.error("Error fetching provider request stats:", requestError);
+      return null;
+    }
+
+    const requests = requestStats || [];
+    const totalRequests = requests.length;
+    const completedRequests = requests.filter(
+      r => r.status === "completed"
+    ).length;
+    const activeRequests = requests.filter(
+      r => r.status === "accepted" || r.status === "in_progress"
+    ).length;
+    const totalEarnings = requests
+      .filter(r => r.status === "completed")
+      .reduce((sum, r) => sum + r.budget, 0);
+
+    // Calculate completion rate
+    const completionRate =
+      totalRequests > 0 ? (completedRequests / totalRequests) * 100 : 0;
+
+    // Calculate average completion time (in days)
+    const completedWithTimes = requests.filter(
+      r => r.status === "completed" && r.completed_at && r.created_at
+    );
+
+    const averageCompletionTime =
+      completedWithTimes.length > 0
+        ? completedWithTimes.reduce((sum, r) => {
+            const start = new Date(r.created_at).getTime();
+            const end = new Date(r.completed_at).getTime();
+            return sum + (end - start) / (1000 * 60 * 60 * 24); // Convert to days
+          }, 0) / completedWithTimes.length
+        : 0;
+
+    return {
+      totalRequests,
+      completedRequests,
+      activeRequests,
+      totalEarnings,
+      completionRate: Math.round(completionRate * 10) / 10,
+      averageCompletionTime: Math.round(averageCompletionTime * 10) / 10,
+    };
+  } catch (error) {
+    console.error("Error in getProviderPerformanceStats:", error);
+    return null;
+  }
+}
+
+// Update provider rating after a completed job
+export async function updateProviderRating(providerId: string) {
+  try {
+    // Get all reviews for this provider
+    const { data: reviews, error: reviewError } = await supabase
+      .from("reviews")
+      .select("rating")
+      .eq("provider_id", providerId);
+
+    if (reviewError) {
+      console.error("Error fetching provider reviews:", reviewError);
+      return false;
+    }
+
+    const reviewList = reviews || [];
+
+    if (reviewList.length === 0) {
+      return true; // No reviews yet, keep current rating
+    }
+
+    // Calculate new average rating
+    const averageRating =
+      reviewList.reduce((sum, r) => sum + r.rating, 0) / reviewList.length;
+    const roundedRating = Math.round(averageRating * 10) / 10;
+
+    // Update provider's rating
+    const { error: updateError } = await supabase
+      .from("service_providers")
+      .update({
+        rating: roundedRating,
+        total_jobs: reviewList.length,
+      })
+      .eq("id", providerId);
+
+    if (updateError) {
+      console.error("Error updating provider rating:", updateError);
+      return false;
+    }
+
+    return true;
+  } catch (error) {
+    console.error("Error in updateProviderRating:", error);
+    return false;
   }
 }

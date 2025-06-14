@@ -7,6 +7,7 @@ import {
   ServiceCategoriesBlock,
   StatsBlock,
 } from "@/app/(public)/home/blocks";
+import { BecomeProviderCTA } from "@/components/shared";
 
 export default function HomePage() {
   const [_showAuthModal, setShowAuthModal] = useState(false);
@@ -16,6 +17,7 @@ export default function HomePage() {
       <HeroBlock onShowAuth={() => setShowAuthModal(true)} />
       <ServiceCategoriesBlock />
       <StatsBlock />
+      <BecomeProviderCTA variant="card" />
     </div>
   );
 }
