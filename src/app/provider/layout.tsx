@@ -27,14 +27,14 @@ export default function ProviderLayout({ children }: ProviderLayoutProps) {
       // Wait for auth to load
       if (authLoading) return;
 
-      // Redirect if not authenticated
-      if (!user) {
-        router.push("/");
-        return;
-      }
+      // // Redirect if not authenticated
+      // if (!user) {
+      //   router.push("/");
+      //   return;
+      // }
 
       // Check if user is a provider
-      if (!user.email) {
+      if (!user?.email) {
         setError("User email not found");
         setLoading(false);
         return;
