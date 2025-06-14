@@ -200,13 +200,14 @@ export async function getServiceProviderByEmail(
 }
 
 export async function createServiceProvider(
-  provider: Omit<ServiceProvider, "id" | "createdAt" | "updatedAt">
+  provider: Omit<ServiceProvider, "createdAt" | "updatedAt"> // Remove "id" from Omit
 ) {
   try {
     const { data, error } = await supabase
       .from("service_providers")
       .insert([
         {
+          id: provider.id, // ← Add this line
           name: provider.name,
           email: provider.email,
           phone: provider.phone,
