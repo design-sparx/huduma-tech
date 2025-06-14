@@ -34,7 +34,7 @@ const eslintConfig = [
       "react/jsx-boolean-value": ["error", "never"],
 
       // General rules
-      "no-console": "warn",
+      "no-console": "off", // TODO: switch to error/warn once done with dev work
       "no-debugger": "error",
       "prefer-const": "error",
       "no-var": "error",
