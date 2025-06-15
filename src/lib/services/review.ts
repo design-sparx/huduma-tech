@@ -8,6 +8,7 @@ export interface Review {
   rating: number;
   comment?: string;
   createdAt: Date;
+  created_at: Date;
 }
 
 export async function createReview(review: Omit<Review, "id" | "createdAt">) {
