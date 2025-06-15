@@ -1,8 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 
 import {
   ArrowLeft,
@@ -10,6 +10,8 @@ import {
   Briefcase,
   CheckCircle,
   DollarSign,
+  Mail,
+  RefreshCw,
   Star,
   User,
 } from "lucide-react";
@@ -34,6 +36,7 @@ import { KENYAN_LOCATIONS, SERVICE_CATEGORIES } from "@/constants";
 import { useAuth } from "@/contexts";
 import { signIn, signUp } from "@/lib/services/auth";
 import { createServiceProvider } from "@/lib/services/providers";
+import { supabase } from "@/lib/supabase";
 
 import type { ServiceCategory } from "@/types";
 
@@ -57,6 +60,7 @@ interface ProviderSignupData {
 
 type SignupStep =
   | "personal"
+  | "email-confirmation"
   | "services"
   | "experience"
   | "review"
@@ -84,10 +88,13 @@ const RATE_SUGGESTIONS = {
 export default function ProviderSignupPage() {
   const { user } = useAuth();
   const router = useRouter();
+  const searchParams = useSearchParams();
 
   const [currentStep, setCurrentStep] = useState<SignupStep>("personal");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [resendLoading, setResendLoading] = useState(false);
+  const [resendSuccess, setResendSuccess] = useState(false);
 
   const [formData, setFormData] = useState<ProviderSignupData>({
     name: "",
@@ -102,8 +109,13 @@ export default function ProviderSignupPage() {
     agreedToTerms: false,
   });
 
-  // If user is already logged in, skip personal info
-  useState(() => {
+  // Initialize form data and step from URL params and user state
+  useEffect(() => {
+    const stepFromUrl = searchParams.get("step") as SignupStep;
+    const emailFromUrl = searchParams.get("email");
+    const confirmedFromUrl = searchParams.get("confirmed");
+
+    // If user is already logged in, set their data and go to services
     if (user) {
       setFormData(prev => ({
         ...prev,
@@ -112,9 +124,68 @@ export default function ProviderSignupPage() {
         phone: user.user_metadata?.phone || "",
         location: user.user_metadata?.location || "",
       }));
-      setCurrentStep("services");
+
+      // If coming from email confirmation, go to services
+      if (confirmedFromUrl === "true" || stepFromUrl === "services") {
+        setCurrentStep("services");
+        // Clean up the URL
+        router.replace("/provider/signup?step=services", { scroll: false });
+      } else if (
+        stepFromUrl &&
+        ["services", "experience", "review"].includes(stepFromUrl)
+      ) {
+        setCurrentStep(stepFromUrl);
+      } else {
+        setCurrentStep("services");
+      }
+    } else {
+      // If not logged in, check URL params for signup flow
+      if (emailFromUrl) {
+        setFormData(prev => ({ ...prev, email: emailFromUrl }));
+      }
+
+      if (stepFromUrl === "email-confirmation") {
+        setCurrentStep("email-confirmation");
+      } else if (
+        stepFromUrl &&
+        stepFromUrl !== "services" &&
+        stepFromUrl !== "experience" &&
+        stepFromUrl !== "review"
+      ) {
+        setCurrentStep(stepFromUrl);
+      } else {
+        setCurrentStep("personal");
+      }
     }
-  });
+  }, [user, searchParams, router]);
+
+  // Update URL when step changes
+  const updateUrlStep = (
+    step: SignupStep,
+    additionalParams?: Record<string, string>
+  ) => {
+    const params = new URLSearchParams();
+
+    if (step !== "personal") {
+      params.set("step", step);
+    }
+
+    if (formData.email) {
+      params.set("email", formData.email);
+    }
+
+    if (additionalParams) {
+      Object.entries(additionalParams).forEach(([key, value]) => {
+        params.set(key, value);
+      });
+    }
+
+    const newUrl = params.toString()
+      ? `/provider/signup?${params.toString()}`
+      : "/provider/signup";
+
+    router.replace(newUrl, { scroll: false });
+  };
 
   const handleServiceToggle = (service: ServiceCategory) => {
     setFormData(prev => ({
@@ -154,7 +225,7 @@ export default function ProviderSignupPage() {
       case "services":
         return formData.services.length > 0;
       case "experience":
-        return !!(formData.hourlyRate > 0 && formData.bio.length >= 20);
+        return formData.hourlyRate > 0 && formData.bio.length >= 20;
       case "review":
         return formData.agreedToTerms;
       default:
@@ -171,6 +242,7 @@ export default function ProviderSignupPage() {
     setError(null);
     const steps: SignupStep[] = [
       "personal",
+      "email-confirmation",
       "services",
       "experience",
       "review",
@@ -178,13 +250,16 @@ export default function ProviderSignupPage() {
     ];
     const currentIndex = steps.indexOf(currentStep);
     if (currentIndex < steps.length - 1) {
-      setCurrentStep(steps[currentIndex + 1]);
+      const newStep = steps[currentIndex + 1];
+      setCurrentStep(newStep);
+      updateUrlStep(newStep);
     }
   };
 
   const prevStep = () => {
     const steps: SignupStep[] = [
       "personal",
+      "email-confirmation",
       "services",
       "experience",
       "review",
@@ -192,11 +267,114 @@ export default function ProviderSignupPage() {
     ];
     const currentIndex = steps.indexOf(currentStep);
     if (currentIndex > 0) {
-      setCurrentStep(steps[currentIndex - 1]);
+      const newStep = steps[currentIndex - 1];
+      setCurrentStep(newStep);
+      updateUrlStep(newStep);
     }
   };
 
-  const handleSubmit = async () => {
+  const handleInitialSignup = async () => {
+    if (!validateStep("personal")) {
+      setError("Please fill in all required fields");
+      return;
+    }
+
+    setLoading(true);
+    setError(null);
+
+    try {
+      // Create auth account
+      const signUpResponse = await signUp(formData.email, formData.password, {
+        name: formData.name,
+        phone: formData.phone,
+        location: formData.location,
+      });
+
+      if (signUpResponse.user) {
+        // Check if email confirmation is required
+        if (
+          !signUpResponse.user.email_confirmed_at &&
+          !signUpResponse.session
+        ) {
+          // Email confirmation required
+          setCurrentStep("email-confirmation");
+          updateUrlStep("email-confirmation");
+        } else {
+          // No email confirmation required, proceed to services
+          setCurrentStep("services");
+          updateUrlStep("services");
+        }
+      } else {
+        throw new Error("Failed to create account");
+      }
+    } catch (err: any) {
+      console.error("Signup error:", err);
+      setError(err.message || "Failed to create account");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleResendConfirmation = async () => {
+    setResendLoading(true);
+    setResendSuccess(false);
+
+    try {
+      const { error } = await supabase.auth.resend({
+        type: "signup",
+        email: formData.email,
+        options: {
+          emailRedirectTo: `${window.location.origin}/provider/signup/confirmed?email=${encodeURIComponent(formData.email)}`,
+        },
+      });
+
+      if (error) throw error;
+
+      setResendSuccess(true);
+      setError(null);
+    } catch (error: any) {
+      setError("Failed to resend confirmation email. Please try again.");
+      console.error("Resend error:", error);
+    } finally {
+      setResendLoading(false);
+    }
+  };
+
+  const handleConfirmationCheck = async () => {
+    setLoading(true);
+    setError(null);
+
+    try {
+      // Try to sign in to check if email is confirmed
+      const signInResponse = await signIn(formData.email, formData.password);
+
+      if (signInResponse.user) {
+        // Email confirmed, proceed to services step
+        setCurrentStep("services");
+        updateUrlStep("services");
+      } else {
+        throw new Error("Unable to verify email confirmation");
+      }
+    } catch (err: any) {
+      console.error("Confirmation check error:", err);
+      if (
+        err.message?.includes("email_not_confirmed") ||
+        err.message?.includes("Email not confirmed")
+      ) {
+        setError(
+          "Please confirm your email before continuing. Check your inbox and click the confirmation link."
+        );
+      } else {
+        setError(
+          "Unable to verify email confirmation. Please try signing in again or contact support."
+        );
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleCompleteProviderSetup = async () => {
     if (!validateStep("review")) {
       setError("Please agree to the terms and conditions");
       return;
@@ -206,20 +384,35 @@ export default function ProviderSignupPage() {
     setError(null);
 
     try {
-      // Step 1: Create auth account if user isn't logged in
+      // At this point, user should be authenticated
       if (!user) {
-        await signUp(formData.email, formData.password, {
-          name: formData.name,
-          phone: formData.phone,
-          location: formData.location,
-        });
-
-        // Sign in the new user
-        await signIn(formData.email, formData.password);
+        throw new Error("You must be logged in to complete provider setup");
       }
 
-      // Step 2: Create provider profile
+      // Validate hourly rate before submitting
+      if (
+        !formData.hourlyRate ||
+        formData.hourlyRate < 100 ||
+        formData.hourlyRate > 10000
+      ) {
+        throw new Error("Hourly rate must be between KES 100 and KES 10,000");
+      }
+
+      console.log("Creating provider with data:", {
+        id: user.id,
+        name: formData.name,
+        email: formData.email,
+        phone: formData.phone,
+        services: formData.services,
+        location: formData.location,
+        hourlyRate: formData.hourlyRate,
+        bio: formData.bio,
+        experienceYears: formData.experienceYears,
+      });
+
+      // Create provider profile using the authenticated user's ID
       await createServiceProvider({
+        id: user.id,
         name: formData.name,
         email: formData.email,
         phone: formData.phone,
@@ -227,16 +420,22 @@ export default function ProviderSignupPage() {
         location: formData.location,
         rating: 0,
         totalJobs: 0,
-        verified: false, // Will be verified by admin
-        hourlyRate: formData.hourlyRate,
+        verified: false,
+        hourlyRate: Number(formData.hourlyRate), // Ensure it's a number
         bio: formData.bio,
-        experienceYears: formData.experienceYears,
+        experienceYears: Number(formData.experienceYears), // Ensure it's a number
       });
 
+      // Show success message briefly, then redirect to dashboard
       setCurrentStep("complete");
+
+      // Redirect to provider dashboard after a brief delay
+      setTimeout(() => {
+        router.push("/provider/dashboard?welcome=true");
+      }, 2000);
     } catch (err: any) {
-      setError(err.message || "Failed to create provider account");
-      console.error("Provider signup error:", err);
+      console.error("Provider setup error:", err);
+      setError(err.message || "Failed to complete provider setup");
     } finally {
       setLoading(false);
     }
@@ -244,7 +443,10 @@ export default function ProviderSignupPage() {
 
   const getStepProgress = () => {
     const steps = ["personal", "services", "experience", "review", "complete"];
-    return ((steps.indexOf(currentStep) + 1) / steps.length) * 100;
+    const currentIndex = steps.indexOf(currentStep);
+    const progressIndex =
+      currentStep === "email-confirmation" ? 0 : currentIndex;
+    return ((progressIndex + 1) / steps.length) * 100;
   };
 
   const renderPersonalStep = () => (
@@ -333,6 +535,120 @@ export default function ProviderSignupPage() {
             </SelectContent>
           </Select>
         </div>
+      </div>
+    </div>
+  );
+
+  const renderEmailConfirmationStep = () => (
+    <div className="space-y-6 text-center">
+      <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-blue-100">
+        <Mail className="h-12 w-12 text-blue-600" />
+      </div>
+
+      <div>
+        <h2 className="mb-2 text-3xl font-bold text-blue-600">
+          Check Your Email
+        </h2>
+        <p className="mb-6 text-lg text-gray-600">
+          We&apos;ve sent a confirmation link to{" "}
+          <strong>{formData.email}</strong>
+        </p>
+      </div>
+
+      <Card className="text-left">
+        <CardContent className="p-6">
+          <h3 className="mb-4 font-semibold">Next Steps:</h3>
+          <div className="space-y-3 text-sm">
+            <div className="flex items-start space-x-3">
+              <div className="mt-0.5 flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full bg-blue-100">
+                <span className="text-xs font-bold text-blue-600">1</span>
+              </div>
+              <p>
+                Check your email inbox (and spam folder) for a confirmation
+                message from HudumaTech.
+              </p>
+            </div>
+            <div className="flex items-start space-x-3">
+              <div className="mt-0.5 flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full bg-blue-100">
+                <span className="text-xs font-bold text-blue-600">2</span>
+              </div>
+              <p>
+                Click the confirmation link in the email to verify your account.
+              </p>
+            </div>
+            <div className="flex items-start space-x-3">
+              <div className="mt-0.5 flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full bg-blue-100">
+                <span className="text-xs font-bold text-blue-600">3</span>
+              </div>
+              <p>
+                Come back here and click &quot;I&apos;ve confirmed my
+                email&quot; to continue.
+              </p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {resendSuccess && (
+        <div className="rounded-lg bg-green-50 p-4">
+          <p className="text-sm text-green-600">
+            ✓ Confirmation email sent successfully! Please check your inbox.
+          </p>
+        </div>
+      )}
+
+      <div className="space-y-4">
+        <div className="flex flex-col justify-center gap-3 sm:flex-row">
+          <Button
+            onClick={handleConfirmationCheck}
+            disabled={loading}
+            className="flex items-center space-x-2"
+          >
+            {loading ? (
+              <>
+                <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                <span>Checking...</span>
+              </>
+            ) : (
+              <>
+                <CheckCircle className="h-4 w-4" />
+                <span>I&apos;ve confirmed my email</span>
+              </>
+            )}
+          </Button>
+
+          <Button
+            variant="outline"
+            onClick={handleResendConfirmation}
+            disabled={resendLoading}
+            className="flex items-center space-x-2"
+          >
+            {resendLoading ? (
+              <>
+                <div className="h-4 w-4 animate-spin rounded-full border-2 border-gray-600 border-t-transparent" />
+                <span>Sending...</span>
+              </>
+            ) : (
+              <>
+                <RefreshCw className="h-4 w-4" />
+                <span>Resend Email</span>
+              </>
+            )}
+          </Button>
+        </div>
+
+        <p className="text-sm text-gray-600">
+          Wrong email?{" "}
+          <button
+            onClick={() => {
+              setCurrentStep("personal");
+              updateUrlStep("personal");
+            }}
+            className="text-blue-600 underline hover:text-blue-800"
+          >
+            Go back and try different email
+          </button>
+        </p>
       </div>
     </div>
   );
@@ -673,17 +989,22 @@ export default function ProviderSignupPage() {
                 <span className="text-xs font-bold text-green-600">3</span>
               </div>
               <p>
-                Access your provider dashboard to manage requests and track your
-                earnings.
+                You&apos;ll be redirected to your provider dashboard in a
+                moment...
               </p>
             </div>
           </div>
         </CardContent>
       </Card>
 
+      <div className="flex items-center justify-center space-x-2 text-sm text-gray-600">
+        <div className="h-4 w-4 animate-spin rounded-full border-2 border-green-600 border-t-transparent" />
+        <span>Redirecting to your dashboard...</span>
+      </div>
+
       <div className="flex flex-col justify-center gap-4 sm:flex-row">
-        <Button onClick={() => router.push("/provider-dashboard")} size="lg">
-          Go to Provider Dashboard
+        <Button onClick={() => router.push("/provider/dashboard")} size="lg">
+          Go to Dashboard Now
         </Button>
         <Button variant="outline" onClick={() => router.push("/")} size="lg">
           Back to Home
@@ -692,11 +1013,71 @@ export default function ProviderSignupPage() {
     </div>
   );
 
+  const renderNextButton = () => {
+    // Personal step for non-authenticated users
+    if (currentStep === "personal" && !user) {
+      return (
+        <Button
+          onClick={handleInitialSignup}
+          disabled={!validateStep(currentStep) || loading}
+          className="flex items-center space-x-2"
+        >
+          {loading ? (
+            <>
+              <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+              <span>Creating Account...</span>
+            </>
+          ) : (
+            <>
+              <span>Create Account</span>
+              <ArrowRight className="h-4 w-4" />
+            </>
+          )}
+        </Button>
+      );
+    }
+
+    // Review step - final submission
+    if (currentStep === "review") {
+      return (
+        <Button
+          onClick={handleCompleteProviderSetup}
+          disabled={!validateStep(currentStep) || loading}
+          className="flex items-center space-x-2"
+        >
+          {loading ? (
+            <>
+              <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+              <span>Setting up...</span>
+            </>
+          ) : (
+            <>
+              <CheckCircle className="h-4 w-4" />
+              <span>Complete Provider Setup</span>
+            </>
+          )}
+        </Button>
+      );
+    }
+
+    // Default next button for other steps
+    return (
+      <Button
+        onClick={nextStep}
+        disabled={!validateStep(currentStep) || loading}
+        className="flex items-center space-x-2"
+      >
+        <span>Next</span>
+        <ArrowRight className="h-4 w-4" />
+      </Button>
+    );
+  };
+
   return (
     <div className="min-h-screen bg-gray-50 py-8">
       <div className="container mx-auto max-w-2xl px-4">
         {/* Progress Bar */}
-        {currentStep !== "complete" && (
+        {currentStep !== "complete" && currentStep !== "email-confirmation" && (
           <div className="mb-8">
             <div className="mb-2 flex items-center justify-between text-sm text-gray-600">
               <span>
@@ -721,6 +1102,8 @@ export default function ProviderSignupPage() {
         <Card>
           <CardContent className="p-8">
             {currentStep === "personal" && renderPersonalStep()}
+            {currentStep === "email-confirmation" &&
+              renderEmailConfirmationStep()}
             {currentStep === "services" && renderServicesStep()}
             {currentStep === "experience" && renderExperienceStep()}
             {currentStep === "review" && renderReviewStep()}
@@ -733,48 +1116,22 @@ export default function ProviderSignupPage() {
             )}
 
             {/* Navigation Buttons */}
-            {currentStep !== "complete" && (
-              <div className="mt-8 flex justify-between">
-                <Button
-                  variant="outline"
-                  onClick={prevStep}
-                  disabled={currentStep === "personal" || loading}
-                  className="flex items-center space-x-2"
-                >
-                  <ArrowLeft className="h-4 w-4" />
-                  <span>Previous</span>
-                </Button>
+            {currentStep !== "complete" &&
+              currentStep !== "email-confirmation" && (
+                <div className="mt-8 flex justify-between">
+                  <Button
+                    variant="outline"
+                    onClick={prevStep}
+                    disabled={currentStep === "personal" || loading}
+                    className="flex items-center space-x-2"
+                  >
+                    <ArrowLeft className="h-4 w-4" />
+                    <span>Previous</span>
+                  </Button>
 
-                {currentStep === "review" ? (
-                  <Button
-                    onClick={handleSubmit}
-                    disabled={!validateStep(currentStep) || loading}
-                    className="flex items-center space-x-2"
-                  >
-                    {loading ? (
-                      <>
-                        <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
-                        <span>Creating Account...</span>
-                      </>
-                    ) : (
-                      <>
-                        <CheckCircle className="h-4 w-4" />
-                        <span>Create Provider Account</span>
-                      </>
-                    )}
-                  </Button>
-                ) : (
-                  <Button
-                    onClick={nextStep}
-                    disabled={!validateStep(currentStep) || loading}
-                    className="flex items-center space-x-2"
-                  >
-                    <span>Next</span>
-                    <ArrowRight className="h-4 w-4" />
-                  </Button>
-                )}
-              </div>
-            )}
+                  {renderNextButton()}
+                </div>
+              )}
           </CardContent>
         </Card>
 
