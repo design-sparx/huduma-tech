@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Image from "next/image";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
 import {
@@ -18,6 +19,7 @@ import {
   X,
 } from "lucide-react";
 
+import { ProviderProfile } from "@/components/shared";
 import {
   Button,
   Input,
@@ -39,7 +41,7 @@ import { KENYAN_LOCATIONS, SERVICE_CATEGORIES } from "@/constants";
 import { useServiceProviders } from "@/hooks";
 import { formatPrice } from "@/lib/formats";
 
-import type { ServiceCategory } from "@/types";
+import type { ServiceCategory, ServiceProvider } from "@/types";
 
 interface SearchFilters {
   searchTerm: string;
@@ -99,6 +101,9 @@ export default function SearchPage() {
   });
 
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
+  const [selectedProvider, setSelectedProvider] =
+    useState<ServiceProvider | null>(null);
+  const [showProviderProfile, setShowProviderProfile] = useState(false);
 
   // Fetch providers with current filters
   const { providers, loading, error, refetch, hasResults, totalCount } =
@@ -181,6 +186,26 @@ export default function SearchPage() {
   };
 
   const hasActiveFilters = getActiveFiltersCount() > 0;
+
+  // Handle provider actions
+  const handleViewProvider = (provider: ServiceProvider) => {
+    setSelectedProvider(provider);
+    setShowProviderProfile(true);
+  };
+
+  const handleHireProvider = (provider: ServiceProvider) => {
+    router.push(`/request?providerId=${provider.id}`);
+  };
+
+  const handleContactProvider = (provider: ServiceProvider) => {
+    // You can implement a contact modal or redirect to contact page
+    window.location.href = `tel:${provider.phone}`;
+  };
+
+  const handleMessageProvider = (provider: ServiceProvider) => {
+    // You can implement messaging functionality
+    window.location.href = `mailto:${provider.email}`;
+  };
 
   return (
     <div className="space-y-6">
@@ -550,12 +575,21 @@ export default function SearchPage() {
           {providers.map(provider => (
             <div
               key={provider.id}
-              className="rounded-lg bg-white p-6 shadow-md transition-shadow hover:shadow-lg"
+              className="cursor-pointer rounded-lg bg-white p-6 shadow-md transition-all hover:shadow-lg"
+              onClick={() => handleViewProvider(provider)}
             >
               <div className="mb-4 flex items-start justify-between">
                 <div className="flex items-center space-x-3">
                   <div className="flex h-12 w-12 items-center justify-center rounded-full bg-green-100">
-                    <User className="h-6 w-6 text-green-600" />
+                    {provider.avatar ? (
+                      <Image
+                        src={provider.avatar}
+                        alt={provider.name}
+                        className="h-12 w-12 rounded-full object-cover"
+                      />
+                    ) : (
+                      <User className="h-6 w-6 text-green-600" />
+                    )}
                   </div>
                   <div>
                     <h3 className="text-lg font-semibold">{provider.name}</h3>
@@ -566,54 +600,113 @@ export default function SearchPage() {
                   </div>
                 </div>
                 {provider.verified && (
-                  <CheckCircle2 className="h-5 w-5 text-green-500" />
+                  <Badge className="bg-green-100 text-green-800">
+                    <CheckCircle2 className="mr-1 h-3 w-3" />
+                    Verified
+                  </Badge>
                 )}
               </div>
 
+              {/* Enhanced Rating Display */}
               <div className="mb-4">
-                <div className="mb-2 flex items-center space-x-2">
-                  <div className="flex items-center space-x-1">
-                    <Star className="h-4 w-4 fill-current text-yellow-500" />
-                    <span className="font-semibold">{provider.rating}</span>
+                <div className="mb-2 flex items-center justify-between">
+                  <div className="flex items-center space-x-2">
+                    <div className="flex items-center space-x-1">
+                      {[1, 2, 3, 4, 5].map(star => (
+                        <Star
+                          key={star}
+                          className={`h-4 w-4 ${
+                            star <= provider.rating
+                              ? "fill-yellow-400 text-yellow-400"
+                              : "text-gray-300"
+                          }`}
+                        />
+                      ))}
+                    </div>
+                    <span className="text-sm font-semibold">
+                      {provider.rating.toFixed(1)}
+                    </span>
+                    <span className="text-sm text-gray-500">
+                      ({provider.totalJobs} reviews)
+                    </span>
                   </div>
-                  <span className="text-gray-500">
-                    ({provider.totalJobs} jobs)
-                  </span>
+                  <div className="text-lg font-semibold text-green-600">
+                    {formatPrice(provider.hourlyRate)}/hr
+                  </div>
                 </div>
-                <div className="text-lg font-semibold text-green-600">
-                  {formatPrice(provider.hourlyRate)}/hour
-                </div>
+
+                {/* Experience Badge */}
+                {provider.experienceYears && provider.experienceYears > 0 && (
+                  <Badge variant="outline" className="text-xs">
+                    {provider.experienceYears} years experience
+                  </Badge>
+                )}
               </div>
 
+              {/* Services */}
               <div className="mb-4">
-                <h4 className="mb-2 font-medium">Services:</h4>
+                <h4 className="mb-2 text-sm font-medium">Services:</h4>
                 <div className="flex flex-wrap gap-1">
-                  {provider.services.map(service => {
+                  {provider.services.slice(0, 3).map(service => {
                     const category = SERVICE_CATEGORIES.find(
                       cat => cat.value === service
                     );
                     return (
-                      <span
+                      <Badge
                         key={service}
-                        className={`rounded-full px-2 py-1 text-xs ${
-                          category?.color || "bg-gray-100 text-gray-800"
-                        }`}
+                        variant="outline"
+                        className="text-xs"
                       >
                         {category?.label || service}
-                      </span>
+                      </Badge>
                     );
                   })}
+                  {provider.services.length > 3 && (
+                    <Badge variant="outline" className="text-xs">
+                      +{provider.services.length - 3} more
+                    </Badge>
+                  )}
                 </div>
               </div>
 
+              {/* Bio Preview */}
+              {provider.bio && (
+                <p className="mb-4 line-clamp-2 text-sm text-gray-600">
+                  {provider.bio}
+                </p>
+              )}
+
+              {/* Action Buttons */}
               <div className="flex space-x-2">
-                <Button className="flex-1" size="sm">
-                  <Phone className="mr-2 h-4 w-4" />
-                  Contact
+                <Button
+                  className="flex-1"
+                  size="sm"
+                  onClick={e => {
+                    e.stopPropagation();
+                    handleHireProvider(provider);
+                  }}
+                >
+                  Hire Now
                 </Button>
-                <Button variant="outline" size="sm">
-                  <Mail className="mr-2 h-4 w-4" />
-                  Message
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={e => {
+                    e.stopPropagation();
+                    handleContactProvider(provider);
+                  }}
+                >
+                  <Phone className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={e => {
+                    e.stopPropagation();
+                    handleMessageProvider(provider);
+                  }}
+                >
+                  <Mail className="h-4 w-4" />
                 </Button>
               </div>
             </div>
@@ -686,6 +779,24 @@ export default function SearchPage() {
             </div>
           )}
         </div>
+      )}
+
+      {/* Provider Profile Modal */}
+      {selectedProvider && (
+        <Dialog
+          open={showProviderProfile}
+          onOpenChange={setShowProviderProfile}
+        >
+          <DialogContent className="max-h-[90vh] max-w-4xl overflow-y-auto">
+            <ProviderProfile
+              provider={selectedProvider}
+              showReviews
+              showActions
+              onHireProvider={() => handleHireProvider(selectedProvider)}
+              onContactProvider={() => handleContactProvider(selectedProvider)}
+            />
+          </DialogContent>
+        </Dialog>
       )}
     </div>
   );

@@ -1,3 +1,4 @@
+// src/app/(public)/my-requests/page.tsx - Updated with Review Integration
 "use client";
 
 import { useMemo, useState } from "react";
@@ -24,6 +25,7 @@ import {
 } from "lucide-react";
 
 import { EditRequestModal } from "@/app/(public)/my-requests/components";
+import { ReviewModal } from "@/components/shared/ReviewModal";
 import {
   Avatar,
   AvatarFallback,
@@ -92,6 +94,7 @@ export default function MyRequestsPage() {
   const [showRequestDetails, setShowRequestDetails] = useState(false);
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
   const [showEditRequest, setShowEditRequest] = useState(false);
+  const [showReviewModal, setShowReviewModal] = useState(false);
   const [cancellingRequest, setCancellingRequest] = useState<string | null>(
     null
   );
@@ -201,11 +204,10 @@ export default function MyRequestsPage() {
     updates: Partial<ServiceRequest>
   ) => {
     try {
-      // You can implement this using the enhanced hook or direct service call
       await updateServiceRequest(requestId, updates);
       await refetchRequests();
     } catch (error) {
-      // console.error("Error updating request:", error);
+      console.error("Error updating request:", error);
       throw error;
     }
   };
@@ -219,7 +221,7 @@ export default function MyRequestsPage() {
       setShowCancelConfirm(false);
       setSelectedRequest(null);
     } catch (error) {
-      // console.error("Error cancelling request:", error);
+      console.error("Error cancelling request:", error);
       throw error;
     } finally {
       setCancellingRequest(null);
@@ -241,11 +243,15 @@ export default function MyRequestsPage() {
     return SERVICE_CATEGORIES.find(cat => cat.value === categoryValue);
   };
 
-  // Redirect if not authenticated
-  // if (!user) {
-  //   router.push("/");
-  //   return null;
-  // }
+  // Handle review submission
+  const handleReviewSubmitted = () => {
+    refetchRequests(); // Refresh to potentially update any review-related data
+  };
+
+  // Check if request can be reviewed
+  const canReviewRequest = (request: ServiceRequest) => {
+    return request.status === "completed" && request.providerId;
+  };
 
   return (
     <div className="space-y-6">
@@ -649,8 +655,16 @@ export default function MyRequestsPage() {
                             </Button>
                           </>
                         )}
-                        {request.status === "completed" && (
-                          <Button variant="outline" size="sm">
+                        {canReviewRequest(request) && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                              setSelectedRequest(request);
+                              setShowReviewModal(true);
+                            }}
+                            className="text-yellow-600 hover:text-yellow-700"
+                          >
                             <Star className="mr-1 h-4 w-4" />
                             Leave Review
                           </Button>
@@ -759,6 +773,16 @@ export default function MyRequestsPage() {
         onSave={handleUpdateRequest}
         isLoading={false}
       />
+
+      {/* Review Modal */}
+      {selectedRequest && (
+        <ReviewModal
+          isOpen={showReviewModal}
+          onClose={() => setShowReviewModal(false)}
+          serviceRequest={selectedRequest}
+          onReviewSubmitted={handleReviewSubmitted}
+        />
+      )}
 
       {/* Cancel Confirmation Modal */}
       <Dialog open={showCancelConfirm} onOpenChange={setShowCancelConfirm}>
