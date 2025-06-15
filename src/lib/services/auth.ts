@@ -27,86 +27,9 @@ export async function signUp(
       throw error;
     }
 
-    // Note: User profile is automatically created by database trigger
-    // No need to manually insert into users table
-
     return data;
   } catch (error) {
     console.error("Error in signUp:", error);
-    throw error;
-  }
-}
-
-export async function signUpProvider(
-  email: string,
-  password: string,
-  userData: {
-    name: string;
-    phone: string;
-    location: string;
-  },
-  providerData: {
-    services: string[];
-    hourlyRate: number;
-    experienceYears: number;
-    bio: string;
-  }
-) {
-  try {
-    // First create the auth account
-    const { data: authData, error: authError } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        data: {
-          name: userData.name,
-          phone: userData.phone,
-          location: userData.location,
-          role: "provider", // Mark as provider
-        },
-      },
-    });
-
-    if (authError) {
-      console.error("Error creating auth account:", authError);
-      throw authError;
-    }
-
-    // Wait a moment for the auth user to be fully created
-    await new Promise(resolve => setTimeout(resolve, 1000));
-
-    // Then create the provider profile
-    if (authData.user) {
-      const { error: providerError } = await supabase
-        .from("service_providers")
-        .insert([
-          {
-            id: authData.user.id, // Use auth user ID
-            name: userData.name,
-            email,
-            phone: userData.phone,
-            services: providerData.services,
-            location: userData.location,
-            rating: 0,
-            total_jobs: 0,
-            verified: false, // Will be verified by admin
-            hourly_rate: providerData.hourlyRate,
-            bio: providerData.bio,
-            experience_years: providerData.experienceYears,
-          },
-        ]);
-
-      if (providerError) {
-        console.error("Error creating provider profile:", providerError);
-        // If provider creation fails, we should clean up the auth user
-        // but for now, we'll just throw the error
-        throw providerError;
-      }
-    }
-
-    return authData;
-  } catch (error) {
-    console.error("Error in signUpProvider:", error);
     throw error;
   }
 }
@@ -147,16 +70,16 @@ export async function signOut() {
 export async function getCurrentUser() {
   try {
     const {
-      data: { user },
+      data: { session },
       error,
-    } = await supabase.auth.getUser();
+    } = await supabase.auth.getSession();
 
     if (error) {
-      console.error("Error getting current user:", error);
+      console.error("Error getting current session:", error);
       return null;
     }
 
-    return user;
+    return session?.user ?? null;
   } catch (error) {
     console.error("Error in getCurrentUser:", error);
     return null;

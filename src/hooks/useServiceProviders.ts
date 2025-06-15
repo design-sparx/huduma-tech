@@ -153,7 +153,7 @@ export function useServiceProviders(
       .catch(err => {
         if (requestId === latestRequestId.current) {
           setError(err.message || "Failed to fetch service providers");
-          // console.error("Error fetching providers:", err);
+          console.error("Error fetching providers:", err);
         }
       })
       .finally(() => {

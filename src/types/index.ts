@@ -199,3 +199,58 @@ export interface RequestSuccessData {
   status: string;
   createdAt: Date;
 }
+
+// Add these to your existing types/index.ts file
+
+export interface Message {
+  id: string;
+  serviceRequestId: string;
+  senderId: string;
+  senderType: "user" | "provider";
+  content: string;
+  messageType: "text" | "system";
+  readAt?: Date;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface Conversation {
+  id: string;
+  serviceRequestId: string;
+  userId: string;
+  providerId: string;
+  lastMessageAt: Date;
+  userUnreadCount: number;
+  providerUnreadCount: number;
+  createdAt: Date;
+  updatedAt: Date;
+  // Populated fields
+  request?: ServiceRequest;
+  user?: User;
+  provider?: ServiceProvider;
+  lastMessage?: Message;
+}
+
+export interface MessageFormData {
+  content: string;
+}
+
+export interface ConversationSummary {
+  id: string;
+  serviceRequestId: string;
+  title: string;
+  otherPartyName: string;
+  otherPartyAvatar?: string;
+  lastMessage: string;
+  lastMessageAt: Date;
+  unreadCount: number;
+  status: ServiceRequest["status"];
+}
+
+// Chat UI States
+export interface ChatUIState {
+  isLoading: boolean;
+  isSending: boolean;
+  error: string | null;
+  isTyping: boolean;
+}

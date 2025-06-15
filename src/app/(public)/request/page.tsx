@@ -29,7 +29,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { KENYAN_LOCATIONS, SERVICE_CATEGORIES } from "@/constants";
-import { useAuth } from "@/hooks/useAuth";
+import { useAuth } from "@/contexts";
 import { formatPrice } from "@/lib/formats";
 import { createServiceRequest } from "@/lib/services/requests";
 import {

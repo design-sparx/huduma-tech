@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 
+import { useAuth } from "@/contexts";
 import {
   deleteServiceRequest,
   getUserServiceRequests,
@@ -10,8 +11,6 @@ import {
   updateServiceRequest,
   updateServiceRequestStatus,
 } from "@/lib/services/requests";
-
-import { useAuth } from "./useAuth";
 
 import type { ServiceRequest } from "@/types";
 

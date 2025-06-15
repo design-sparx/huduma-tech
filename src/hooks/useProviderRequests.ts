@@ -2,14 +2,13 @@
 
 import { useCallback, useEffect, useState } from "react";
 
+import { useAuth } from "@/contexts";
 import {
   getAvailableRequests,
   type RequestFilters,
   searchRequests,
   updateServiceRequestStatus,
 } from "@/lib/services/requests";
-
-import { useAuth } from "./useAuth";
 
 import type { ServiceProvider, ServiceRequest } from "@/types";
 

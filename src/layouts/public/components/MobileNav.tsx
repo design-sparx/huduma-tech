@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation";
 
 import { Calendar, Plus, Search, Settings } from "lucide-react";
 
-import { useAuth } from "@/hooks/useAuth";
+import { useAuth } from "@/contexts";
 import { useServiceRequests } from "@/hooks/useServiceRequests";
 
 interface MobileNavProps {
