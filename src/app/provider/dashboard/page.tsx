@@ -13,7 +13,6 @@ import {
   Eye,
   Filter,
   MapPin,
-  Phone,
   Search,
   SortAsc,
   SortDesc,
@@ -21,6 +20,7 @@ import {
   XCircle,
 } from "lucide-react";
 
+import { MessageButton } from "@/components/messaging";
 import {
   Badge,
   Button,
@@ -42,7 +42,7 @@ import {
   SelectValue,
 } from "@/components/ui";
 import { KENYAN_LOCATIONS, SERVICE_CATEGORIES } from "@/constants";
-import { useAuth } from "@/hooks/useAuth";
+import { useAuth } from "@/contexts";
 import { useProviderRequests } from "@/hooks/useProviderRequests";
 import { getStatusColor, getUrgencyColor } from "@/lib/colors";
 import { formatDate, formatPrice } from "@/lib/formats";
@@ -666,10 +666,15 @@ export default function ProviderDashboardPage() {
                                 : "Mark Complete"}
                             </Button>
                           )}
-                          <Button variant="outline" size="sm">
-                            <Phone className="mr-1 h-4 w-4" />
-                            Contact
-                          </Button>
+                          <MessageButton
+                            serviceRequest={request}
+                            userType="provider"
+                            otherPartyName={
+                              request.provider?.name || "Customer"
+                            }
+                            otherPartyPhone={request.provider?.phone}
+                            // otherPartyAvatar={request.provider?.avatar}
+                          />
                         </>
                       )}
                     </div>

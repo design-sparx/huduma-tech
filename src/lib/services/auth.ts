@@ -19,8 +19,6 @@ export async function signUp(
           phone: userData.phone,
           location: userData.location,
         },
-        // Set redirect URL for email confirmation with email parameter
-        emailRedirectTo: `${window.location.origin}/provider/signup/confirmed?email=${encodeURIComponent(email)}`,
       },
     });
 
@@ -32,51 +30,6 @@ export async function signUp(
     return data;
   } catch (error) {
     console.error("Error in signUp:", error);
-    throw error;
-  }
-}
-
-export async function signUpProvider(
-  email: string,
-  password: string,
-  userData: {
-    name: string;
-    phone: string;
-    location: string;
-  },
-  // eslint-disable-next-line unused-imports/no-unused-vars
-  providerData: {
-    services: string[];
-    hourlyRate: number;
-    experienceYears: number;
-    bio: string;
-  }
-) {
-  try {
-    // First create the auth account
-    const { data: authData, error: authError } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        data: {
-          name: userData.name,
-          phone: userData.phone,
-          location: userData.location,
-          role: "provider", // Mark as provider
-        },
-        emailRedirectTo: `${window.location.origin}/provider/signup/confirmed`,
-      },
-    });
-
-    if (authError) {
-      console.error("Error creating auth account:", authError);
-      throw authError;
-    }
-
-    // Return the auth data - provider profile will be created after email confirmation
-    return authData;
-  } catch (error) {
-    console.error("Error in signUpProvider:", error);
     throw error;
   }
 }
@@ -117,16 +70,16 @@ export async function signOut() {
 export async function getCurrentUser() {
   try {
     const {
-      data: { user },
+      data: { session },
       error,
-    } = await supabase.auth.getUser();
+    } = await supabase.auth.getSession();
 
     if (error) {
-      console.error("Error getting current user:", error);
+      console.error("Error getting current session:", error);
       return null;
     }
 
-    return user;
+    return session?.user ?? null;
   } catch (error) {
     console.error("Error in getCurrentUser:", error);
     return null;
@@ -323,91 +276,4 @@ export function validateProviderSignupData(data: {
     isValid: errors.length === 0,
     errors,
   };
-}
-
-// Email confirmation specific functions
-export async function resendConfirmationEmail(email: string) {
-  try {
-    const { error } = await supabase.auth.resend({
-      type: "signup",
-      email,
-      options: {
-        emailRedirectTo: `${window.location.origin}/provider/signup/confirmed?email=${encodeURIComponent(email)}`,
-      },
-    });
-
-    if (error) {
-      console.error("Error resending confirmation:", error);
-      throw error;
-    }
-
-    return true;
-  } catch (error) {
-    console.error("Error in resendConfirmationEmail:", error);
-    throw error;
-  }
-}
-
-export async function handleEmailConfirmation() {
-  try {
-    // This will be called after user clicks the email confirmation link
-    const { data, error } = await supabase.auth.getUser();
-
-    if (error) {
-      console.error("Error getting user after confirmation:", error);
-      throw error;
-    }
-
-    return data.user;
-  } catch (error) {
-    console.error("Error in handleEmailConfirmation:", error);
-    throw error;
-  }
-}
-
-// Check if user's email is confirmed
-export async function isEmailConfirmed(_userId?: string) {
-  try {
-    const { data, error } = await supabase.auth.getUser();
-
-    if (error) {
-      console.error("Error checking email confirmation:", error);
-      return false;
-    }
-
-    return !!(data.user && data.user.email_confirmed_at);
-  } catch (error) {
-    console.error("Error in isEmailConfirmed:", error);
-    return false;
-  }
-}
-
-// Wait for email confirmation with polling
-export async function waitForEmailConfirmation(
-  email: string,
-  maxAttempts: number = 60,
-  intervalMs: number = 2000
-): Promise<boolean> {
-  for (let attempt = 0; attempt < maxAttempts; attempt++) {
-    try {
-      const isConfirmed = await isEmailConfirmed();
-      if (isConfirmed) {
-        return true;
-      }
-
-      // Wait before next attempt
-      await new Promise(resolve => setTimeout(resolve, intervalMs));
-    } catch (error) {
-      console.error("Error checking confirmation status:", error);
-    }
-  }
-
-  return false;
-}
-
-// Helper to handle auth state changes
-export function onAuthStateChange(callback: (user: any) => void) {
-  return supabase.auth.onAuthStateChange((event, session) => {
-    callback(session?.user || null);
-  });
 }

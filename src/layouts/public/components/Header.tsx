@@ -7,7 +7,7 @@ import { usePathname } from "next/navigation";
 import { LogOut, Settings, UserPlus } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
-import { useAuth } from "@/hooks/useAuth";
+import { useAuth } from "@/contexts";
 import { useServiceRequests } from "@/hooks/useServiceRequests";
 import { signOut } from "@/lib/services/auth";
 import { getServiceProviderByEmail } from "@/lib/services/providers";

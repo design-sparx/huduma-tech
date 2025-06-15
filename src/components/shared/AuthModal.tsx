@@ -21,6 +21,8 @@ import {
 } from "@/components/ui/select";
 import { signIn, signUp } from "@/lib/services/auth";
 
+import type { FormEvent } from "react";
+
 interface AuthModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -58,7 +60,7 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
     location: "",
   });
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError(null);

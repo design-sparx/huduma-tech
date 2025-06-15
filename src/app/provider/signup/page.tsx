@@ -33,7 +33,7 @@ import {
   Textarea,
 } from "@/components/ui";
 import { KENYAN_LOCATIONS, SERVICE_CATEGORIES } from "@/constants";
-import { useAuth } from "@/hooks/useAuth";
+import { useAuth } from "@/contexts";
 import { signIn, signUp } from "@/lib/services/auth";
 import { createServiceProvider } from "@/lib/services/providers";
 import { supabase } from "@/lib/supabase";
