@@ -160,7 +160,7 @@ export default function ProviderSignupModal({
         location: data.location,
         rating: 0,
         totalJobs: 0,
-        verified: false, // Will be false until admin approval
+        verificationStatus: "pending", // Will be false until admin approval
         hourlyRate: data.hourlyRate,
         bio: data.bio,
         experienceYears: data.experienceYears,

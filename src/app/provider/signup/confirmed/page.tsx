@@ -7,7 +7,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { AlertCircle, CheckCircle, Loader } from "lucide-react";
 
 import { Button, Card, CardContent } from "@/components/ui";
-import { useAuth } from "@/hooks/useAuth";
+import { useAuth } from "@/contexts";
 
 export default function EmailConfirmationPage() {
   const { user, loading: authLoading } = useAuth();

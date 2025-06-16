@@ -5,7 +5,7 @@ import { useEffect } from "react";
 import { ArrowRight, CheckCircle2, Plus } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
-import { SERVICE_CATEGORIES } from "@/constants";
+import { useServiceCategories } from "@/hooks";
 import { formatPrice } from "@/lib/formats";
 
 interface RequestSuccessProps {
@@ -26,15 +26,15 @@ export function RequestSuccess({
   onViewRequest,
   onCreateAnother,
 }: RequestSuccessProps) {
+  const { categories } = useServiceCategories();
+
   useEffect(() => {
     // Auto-scroll to success message
     window.scrollTo({ top: 0, behavior: "smooth" });
   }, []);
 
-  const categoryInfo = SERVICE_CATEGORIES.find(
-    cat => cat.value === request.category
-  );
-  const Icon = categoryInfo?.icon;
+  const categoryInfo = categories.find(cat => cat.value === request.category);
+  // const Icon = categoryInfo?.icon;
 
   // Method 1: Using a helper function (recommended - matches your existing pattern)
   const getUrgencyStyles = (urgency: string) => {
@@ -75,7 +75,7 @@ export function RequestSuccess({
             <div className="text-right">
               <div className="font-medium">{request.title}</div>
               <div className="flex items-center justify-end gap-1 text-sm text-gray-500">
-                {Icon && <Icon className="h-4 w-4" />}
+                {/* {Icon && <Icon className="h-4 w-4" />}*/}
                 {categoryInfo?.label}
               </div>
             </div>

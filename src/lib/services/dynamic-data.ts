@@ -10,6 +10,9 @@ export interface ServiceCategory {
   colorClass: string;
   isActive: boolean;
   sortOrder: number;
+  rateMin: number;
+  rateTypical: number;
+  rateMax: number;
   createdAt?: Date;
   updatedAt?: Date;
 }
@@ -408,6 +411,10 @@ function transformServiceCategory(data: any): ServiceCategory {
     colorClass: data.color_class,
     isActive: data.is_active,
     sortOrder: data.sort_order,
+    // Add rate suggestions
+    rateMin: data.rate_min || 500,
+    rateTypical: data.rate_typical || 1000,
+    rateMax: data.rate_max || 2000,
     createdAt: new Date(data.created_at),
     updatedAt: new Date(data.updated_at),
   };
@@ -488,4 +495,50 @@ export async function getServiceCategoriesAsConstants() {
 export async function getServiceLocationsAsArray(): Promise<string[]> {
   const locations = await getCachedServiceLocations();
   return locations.map(loc => loc.name);
+}
+
+// Add function to get rate suggestions for multiple categories
+export async function getRateSuggestionsForCategories(
+  categoryValues: string[]
+): Promise<Record<string, { min: number; typical: number; max: number }>> {
+  const { data, error } = await supabase
+    .from("service_categories")
+    .select("value, rate_min, rate_typical, rate_max")
+    .in("value", categoryValues)
+    .eq("is_active", true);
+
+  if (error) {
+    console.error("Error fetching rate suggestions:", error);
+    return {};
+  }
+
+  return data.reduce(
+    (acc, category) => {
+      acc[category.value] = {
+        min: category.rate_min,
+        typical: category.rate_typical,
+        max: category.rate_max,
+      };
+      return acc;
+    },
+    {} as Record<string, { min: number; typical: number; max: number }>
+  );
+}
+
+// Add function to calculate suggested rate for multiple categories
+export async function calculateSuggestedRate(
+  categoryValues: string[]
+): Promise<number> {
+  const suggestions = await getRateSuggestionsForCategories(categoryValues);
+
+  if (Object.keys(suggestions).length === 0) {
+    return 1000; // Default fallback
+  }
+
+  const totalTypical = Object.values(suggestions).reduce(
+    (sum, suggestion) => sum + suggestion.typical,
+    0
+  );
+
+  return Math.round(totalTypical / Object.keys(suggestions).length);
 }
