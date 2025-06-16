@@ -7,11 +7,13 @@ export interface ServiceProvider {
   location: string;
   rating: number;
   totalJobs: number;
-  verified: boolean;
+  verified: boolean; // Computed field (true when verificationStatus === 'approved')
+  verificationStatus: "pending" | "approved" | "rejected"; // Single source of truth
   avatar?: string;
   hourlyRate: number;
   bio?: string;
   experienceYears?: number;
+  isBlocked?: boolean;
   createdAt?: Date;
   updatedAt?: Date;
 }
@@ -36,6 +38,7 @@ export interface ServiceRequest {
     email: string;
     rating: number;
     verified?: boolean;
+    verificationStatus?: "pending" | "approved" | "rejected";
   };
 }
 
@@ -55,8 +58,42 @@ export interface User {
   phone: string;
   location: string;
   avatar?: string;
+  isAdmin?: boolean;
+  isBlocked?: boolean;
   createdAt?: Date;
   updatedAt?: Date;
+}
+
+// Admin-specific types
+export interface AdminUser extends User {
+  isAdmin: true;
+}
+
+export interface PendingProvider extends ServiceProvider {
+  verificationStatus: "pending";
+  verificationRequestedAt?: Date;
+}
+
+export interface ApprovedProvider extends ServiceProvider {
+  verificationStatus: "approved";
+  verified: true;
+}
+
+export interface RejectedProvider extends ServiceProvider {
+  verificationStatus: "rejected";
+  verified: false;
+}
+
+// Verification workflow types
+export interface VerificationRequest {
+  providerId: string;
+  providerName: string;
+  providerEmail: string;
+  requestedAt: Date;
+  status: "pending" | "approved" | "rejected";
+  adminNotes?: string;
+  processedBy?: string;
+  processedAt?: Date;
 }
 
 // Search and Filter Types
@@ -70,6 +107,8 @@ export interface SearchFilters {
   sortOrder?: "asc" | "desc";
   limit?: number;
   offset?: number;
+  includeUnverified?: boolean; // For admin views
+  verificationStatus?: "pending" | "approved" | "rejected"; // For admin filtering
 }
 
 export interface SearchResult {
@@ -85,6 +124,9 @@ export interface ProviderStats {
   averageRating: number;
   topLocations: Array<{ location: string; count: number }>;
   topServices: Array<{ service: string; count: number }>;
+  pendingVerifications?: number;
+  approvedProviders?: number;
+  rejectedProviders?: number;
 }
 
 // Search Analytics Types
@@ -127,6 +169,7 @@ export interface ProviderCardProps {
   onContact?: (provider: ServiceProvider) => void;
   onMessage?: (provider: ServiceProvider) => void;
   showActions?: boolean;
+  showVerificationStatus?: boolean; // For admin views
 }
 
 // Request Form Types
@@ -200,8 +243,7 @@ export interface RequestSuccessData {
   createdAt: Date;
 }
 
-// Add these to your existing types/index.ts file
-
+// Messaging Types
 export interface Message {
   id: string;
   serviceRequestId: string;
@@ -253,4 +295,27 @@ export interface ChatUIState {
   isSending: boolean;
   error: string | null;
   isTyping: boolean;
+}
+
+// Reporting Types
+export interface Report {
+  id: string;
+  reporterId: string;
+  reportedUserId?: string;
+  reportedProviderId?: string;
+  reportedRequestId?: string;
+  reportType:
+    | "inappropriate_behavior"
+    | "fraud"
+    | "poor_service"
+    | "harassment"
+    | "fake_profile"
+    | "other";
+  description: string;
+  status: "pending" | "investigating" | "resolved" | "dismissed";
+  adminNotes?: string;
+  resolvedBy?: string;
+  resolvedAt?: Date;
+  createdAt: Date;
+  updatedAt: Date;
 }

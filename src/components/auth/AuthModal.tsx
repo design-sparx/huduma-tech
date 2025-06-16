@@ -19,6 +19,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { useServiceLocations } from "@/hooks";
 import { signIn, signUp } from "@/lib/services/auth";
 
 import type { FormEvent } from "react";
@@ -28,26 +29,8 @@ interface AuthModalProps {
   onClose: () => void;
 }
 
-const kenyanLocations = [
-  "Nairobi CBD",
-  "Westlands",
-  "Karen",
-  "Kilimani",
-  "Lavington",
-  "Parklands",
-  "Industrial Area",
-  "Eastleigh",
-  "Kasarani",
-  "Embakasi",
-  "Mombasa",
-  "Kisumu",
-  "Nakuru",
-  "Eldoret",
-  "Thika",
-  "Machakos",
-];
-
 export function AuthModal({ isOpen, onClose }: AuthModalProps) {
+  const { locations } = useServiceLocations();
   const [mode, setMode] = useState<"signin" | "signup">("signin");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -159,9 +142,9 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
                     <SelectValue placeholder="Select your location" />
                   </SelectTrigger>
                   <SelectContent>
-                    {kenyanLocations.map(location => (
-                      <SelectItem key={location} value={location}>
-                        {location}
+                    {locations.map(location => (
+                      <SelectItem key={location.id} value={location.id}>
+                        {location.name}
                       </SelectItem>
                     ))}
                   </SelectContent>

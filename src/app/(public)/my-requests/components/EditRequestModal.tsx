@@ -28,7 +28,7 @@ import {
   SelectValue,
   Textarea,
 } from "@/components/ui";
-import { KENYAN_LOCATIONS, SERVICE_CATEGORIES } from "@/constants";
+import { useServiceCategories, useServiceLocations } from "@/hooks";
 
 import type { ServiceRequest } from "@/types";
 
@@ -71,6 +71,8 @@ export function EditRequestModal({
   isLoading = false,
 }: EditRequestModalProps) {
   const [isSaving, setIsSaving] = useState(false);
+  const { categories } = useServiceCategories();
+  const { locations } = useServiceLocations();
 
   const form = useForm<EditRequestFormData>({
     resolver: zodResolver(editRequestSchema),
@@ -189,13 +191,10 @@ export function EditRequestModal({
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        {SERVICE_CATEGORIES.map(category => (
-                          <SelectItem
-                            key={category.value}
-                            value={category.value}
-                          >
+                        {categories.map(category => (
+                          <SelectItem key={category.id} value={category.id}>
                             <div className="flex items-center space-x-2">
-                              <category.icon className="h-4 w-4" />
+                              {/* <category.icon className="h-4 w-4" />*/}
                               <span>{category.label}</span>
                             </div>
                           </SelectItem>
@@ -220,9 +219,9 @@ export function EditRequestModal({
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        {KENYAN_LOCATIONS.map(location => (
-                          <SelectItem key={location} value={location}>
-                            {location}
+                        {locations.map(location => (
+                          <SelectItem key={location.id} value={location.id}>
+                            {location.name}
                           </SelectItem>
                         ))}
                       </SelectContent>

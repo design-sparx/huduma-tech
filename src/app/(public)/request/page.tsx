@@ -28,8 +28,8 @@ import {
 } from "@/components/ui";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { KENYAN_LOCATIONS, SERVICE_CATEGORIES } from "@/constants";
 import { useAuth } from "@/contexts";
+import { useServiceCategories, useServiceLocations } from "@/hooks";
 import { formatPrice } from "@/lib/formats";
 import { createServiceRequest } from "@/lib/services/requests";
 import {
@@ -64,6 +64,8 @@ const DRAFT_STORAGE_KEY = "huduma-tech-request-draft";
 export default function RequestPage() {
   const { user } = useAuth();
   const router = useRouter();
+  const { locations } = useServiceLocations();
+  const { categories } = useServiceCategories();
 
   const [formData, setFormData] = useState<FormData>(DEFAULT_FORM_DATA);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -201,7 +203,7 @@ export default function RequestPage() {
   };
 
   const budgetSuggestions = getBudgetSuggestions();
-  const selectedCategory = SERVICE_CATEGORIES.find(
+  const selectedCategory = categories.find(
     cat => cat.value === formData.category
   );
 
@@ -335,12 +337,12 @@ export default function RequestPage() {
                     <SelectItem value="placeholder" disabled>
                       Select category
                     </SelectItem>
-                    {SERVICE_CATEGORIES.map(category => {
-                      const Icon = category.icon;
+                    {categories.map(category => {
+                      // const Icon = category.icon;
                       return (
                         <SelectItem key={category.value} value={category.value}>
                           <div className="flex items-center gap-2">
-                            <Icon className="h-4 w-4" />
+                            {/* <Icon className="h-4 w-4" />*/}
                             {category.label}
                           </div>
                         </SelectItem>
@@ -374,11 +376,11 @@ export default function RequestPage() {
                     <SelectItem value="placeholder" disabled>
                       Select location
                     </SelectItem>
-                    {KENYAN_LOCATIONS.map(location => (
-                      <SelectItem key={location} value={location}>
+                    {locations.map(location => (
+                      <SelectItem key={location.id} value={location.id}>
                         <div className="flex items-center gap-2">
                           <MapPin className="h-4 w-4" />
-                          {location}
+                          {location.name}
                         </div>
                       </SelectItem>
                     ))}
