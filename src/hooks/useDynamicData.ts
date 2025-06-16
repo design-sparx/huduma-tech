@@ -1,10 +1,12 @@
 // src/hooks/useDynamicData.ts - React hooks for managing dynamic categories, locations, and settings
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 import {
+  calculateSuggestedRate,
   getActiveServiceCategories,
   getActiveServiceLocations,
+  getRateSuggestionsForCategories,
   getSystemSetting,
   getSystemSettings,
   type ServiceCategory,
@@ -86,7 +88,7 @@ export function useSystemSettings(category?: string) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchSettings = async () => {
+  const fetchSettings = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
@@ -98,11 +100,11 @@ export function useSystemSettings(category?: string) {
     } finally {
       setLoading(false);
     }
-  };
+  }, [category]);
 
   useEffect(() => {
     fetchSettings();
-  }, [category]);
+  }, [fetchSettings]);
 
   return {
     settings,
@@ -118,7 +120,7 @@ export function useSystemSetting(key: string) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchSetting = async () => {
+  const fetchSetting = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
@@ -130,11 +132,11 @@ export function useSystemSetting(key: string) {
     } finally {
       setLoading(false);
     }
-  };
+  }, [key]);
 
   useEffect(() => {
     fetchSetting();
-  }, [key]);
+  }, [fetchSetting]);
 
   return {
     setting,
@@ -237,5 +239,54 @@ export function useServiceConstants() {
     KENYAN_LOCATIONS: kenyanLocations,
     loading,
     error,
+  };
+}
+
+export function useRateSuggestions(serviceCategories: string[]) {
+  const [suggestions, setSuggestions] = useState<
+    Record<string, { min: number; typical: number; max: number }>
+  >({});
+  const [suggestedRate, setSuggestedRate] = useState<number>(1000);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const fetchSuggestions = async () => {
+    if (serviceCategories.length === 0) {
+      setSuggestions({});
+      setSuggestedRate(1000);
+      return;
+    }
+
+    try {
+      setLoading(true);
+      setError(null);
+
+      const [rateSuggestions, calculatedRate] = await Promise.all([
+        getRateSuggestionsForCategories(serviceCategories),
+        calculateSuggestedRate(serviceCategories),
+      ]);
+
+      setSuggestions(rateSuggestions);
+      setSuggestedRate(calculatedRate);
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : "Failed to fetch rate suggestions"
+      );
+      console.error("Error fetching rate suggestions:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchSuggestions();
+  }, [fetchSuggestions]); // Dependency on stringified array
+
+  return {
+    suggestions,
+    suggestedRate,
+    loading,
+    error,
+    refetch: fetchSuggestions,
   };
 }

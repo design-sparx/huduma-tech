@@ -41,8 +41,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui";
-import { KENYAN_LOCATIONS, SERVICE_CATEGORIES } from "@/constants";
 import { useAuth } from "@/contexts";
+import { useServiceCategories, useServiceLocations } from "@/hooks";
 import { useProviderRequests } from "@/hooks/useProviderRequests";
 import { getStatusColor, getUrgencyColor } from "@/lib/colors";
 import { formatDate, formatPrice } from "@/lib/formats";
@@ -56,6 +56,8 @@ type SortOrder = "asc" | "desc";
 export default function ProviderDashboardPage() {
   const { user } = useAuth();
   const router = useRouter();
+  const { categories } = useServiceCategories();
+  const { locations } = useServiceLocations();
 
   // Get current provider data
   const [currentProvider, setCurrentProvider] =
@@ -237,7 +239,7 @@ export default function ProviderDashboardPage() {
 
   // Get category info
   const getCategoryInfo = (categoryValue: string) => {
-    return SERVICE_CATEGORIES.find(cat => cat.value === categoryValue);
+    return categories.find(cat => cat.value === categoryValue);
   };
 
   if (providerLoading) {
@@ -365,7 +367,9 @@ export default function ProviderDashboardPage() {
               return (
                 <Badge
                   key={service}
-                  className={categoryInfo?.color || "bg-gray-100 text-gray-800"}
+                  className={
+                    categoryInfo?.colorClass || "bg-gray-100 text-gray-800"
+                  }
                 >
                   <Icon className="mr-1 h-3 w-3" />
                   {categoryInfo?.label || service}
@@ -467,9 +471,9 @@ export default function ProviderDashboardPage() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">All Locations</SelectItem>
-                    {KENYAN_LOCATIONS.map(location => (
-                      <SelectItem key={location} value={location}>
-                        {location}
+                    {locations.map(location => (
+                      <SelectItem key={location.id} value={location.id}>
+                        {location.name}
                       </SelectItem>
                     ))}
                   </SelectContent>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import {
   ChevronDown,
@@ -8,6 +8,7 @@ import {
   Edit,
   Eye,
   EyeOff,
+  Loader2,
   MapPin,
   Plus,
   Save,
@@ -17,6 +18,7 @@ import {
   X,
 } from "lucide-react";
 
+import { Label } from "@/components/ui";
 import {
   useServiceCategories,
   useServiceLocations,
@@ -63,14 +65,50 @@ const iconOptions = [
 ];
 
 export default function AdminManagement() {
-  const { locations: initialLocations } = useServiceLocations();
-  const { categories: initialCategories } = useServiceCategories();
-  const { settings: initialSettings } = useSystemSettings();
+  // Use the hooks to get data and loading states
+  const {
+    locations: hookLocations,
+    loading: locationsLoading,
+    error: locationsError,
+  } = useServiceLocations();
+
+  const {
+    categories: hookCategories,
+    loading: categoriesLoading,
+    error: categoriesError,
+  } = useServiceCategories();
+
+  const {
+    settings: hookSettings,
+    loading: settingsLoading,
+    error: settingsError,
+  } = useSystemSettings();
 
   const [activeTab, setActiveTab] = useState("categories");
-  const [categories, setCategories] = useState(initialCategories);
-  const [locations, setLocations] = useState(initialLocations);
-  const [settings, setSettings] = useState(initialSettings);
+
+  // Local state for managing data
+  const [categories, setCategories] = useState<any[]>([]);
+  const [locations, setLocations] = useState<any[]>([]);
+  const [settings, setSettings] = useState<any[]>([]);
+
+  // Update local state when hook data changes
+  useEffect(() => {
+    if (hookCategories.length > 0) {
+      setCategories(hookCategories);
+    }
+  }, [hookCategories]);
+
+  useEffect(() => {
+    if (hookLocations.length > 0) {
+      setLocations(hookLocations);
+    }
+  }, [hookLocations]);
+
+  useEffect(() => {
+    if (hookSettings.length > 0) {
+      setSettings(hookSettings);
+    }
+  }, [hookSettings]);
 
   // Modal states
   const [showCategoryModal, setShowCategoryModal] = useState(false);
@@ -91,6 +129,9 @@ export default function AdminManagement() {
     description: "",
     isActive: true,
     sortOrder: 0,
+    rateMin: 500,
+    rateTypical: 1000,
+    rateMax: 2000,
   });
   const [locationForm, setLocationForm] = useState({
     name: "",
@@ -137,6 +178,9 @@ export default function AdminManagement() {
       description: "",
       isActive: true,
       sortOrder: 0,
+      rateMin: 500,
+      rateTypical: 1000,
+      rateMax: 2000,
     });
     setEditingCategory(null);
   };
@@ -289,6 +333,339 @@ export default function AdminManagement() {
     setSettings(settings.filter(setting => setting.id !== id));
   };
 
+  // Loading component
+  const LoadingSpinner = () => (
+    <div className="flex items-center justify-center py-8">
+      <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
+    </div>
+  );
+
+  // Error component
+  const ErrorMessage = ({ error }: { error: string }) => (
+    <div className="rounded-lg bg-red-50 p-4 text-red-800">
+      <p>Error loading data: {error}</p>
+    </div>
+  );
+
+  // Empty state component
+  const EmptyState = ({ message }: { message: string }) => (
+    <div className="rounded-lg bg-gray-50 p-8 text-center">
+      <p className="text-gray-600">{message}</p>
+    </div>
+  );
+
+  const renderTableContent = () => {
+    if (categoriesLoading) {
+      return <LoadingSpinner />;
+    }
+
+    if (categories.length === 0) {
+      return (
+        <EmptyState message="No service categories found. Add your first category to get started." />
+      );
+    }
+
+    return (
+      <div className="rounded-lg bg-white shadow">
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead className="border-b bg-gray-50">
+              <tr>
+                <th className="px-6 py-3 text-left text-sm font-medium text-gray-500">
+                  Order
+                </th>
+                <th className="px-6 py-3 text-left text-sm font-medium text-gray-500">
+                  Category
+                </th>
+                <th className="px-6 py-3 text-left text-sm font-medium text-gray-500">
+                  Value
+                </th>
+                <th className="px-6 py-3 text-left text-sm font-medium text-gray-500">
+                  Icon
+                </th>
+                <th className="px-6 py-3 text-left text-sm font-medium text-gray-500">
+                  Color
+                </th>
+                <th className="px-6 py-3 text-left text-sm font-medium text-gray-500">
+                  Rate Range (KES)
+                </th>
+                <th className="px-6 py-3 text-left text-sm font-medium text-gray-500">
+                  Status
+                </th>
+                <th className="px-6 py-3 text-left text-sm font-medium text-gray-500">
+                  Actions
+                </th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-200">
+              {categories.map((category, index) => (
+                <tr
+                  key={category.id}
+                  className={!category.isActive ? "opacity-50" : ""}
+                >
+                  <td className="px-6 py-4">
+                    <div className="flex items-center gap-1">
+                      <span className="text-sm text-gray-600">
+                        {category.sortOrder}
+                      </span>
+                      <div className="flex flex-col">
+                        <button
+                          onClick={() => moveCategoryOrder(category.id, "up")}
+                          disabled={index === 0}
+                          className="p-1 text-gray-400 hover:text-gray-600 disabled:opacity-50"
+                        >
+                          <ChevronUp className="h-3 w-3" />
+                        </button>
+                        <button
+                          onClick={() => moveCategoryOrder(category.id, "down")}
+                          disabled={index === categories.length - 1}
+                          className="p-1 text-gray-400 hover:text-gray-600 disabled:opacity-50"
+                        >
+                          <ChevronDown className="h-3 w-3" />
+                        </button>
+                      </div>
+                    </div>
+                  </td>
+                  <td className="px-6 py-4">
+                    <div>
+                      <div className="text-sm font-medium text-gray-900">
+                        {category.label}
+                      </div>
+                      {category.description && (
+                        <div className="text-sm text-gray-500">
+                          {category.description}
+                        </div>
+                      )}
+                    </div>
+                  </td>
+                  <td className="px-6 py-4 text-sm text-gray-600">
+                    {category.value}
+                  </td>
+                  <td className="px-6 py-4 text-sm text-gray-600">
+                    {category.icon}
+                  </td>
+                  <td className="px-6 py-4">
+                    <span
+                      className={`inline-flex rounded-full px-2 py-1 text-xs font-semibold ${category.colorClass}`}
+                    >
+                      Sample
+                    </span>
+                  </td>
+                  <td className="px-6 py-4">
+                    <div className="text-sm text-gray-600">
+                      {category.rateMin?.toLocaleString() || "N/A"} -{" "}
+                      {category.rateMax?.toLocaleString() || "N/A"}
+                    </div>
+                    <div className="text-xs text-gray-500">
+                      Typical: {category.rateTypical?.toLocaleString() || "N/A"}
+                    </div>
+                  </td>
+                  <td className="px-6 py-4">
+                    <button
+                      onClick={() => toggleCategoryActive(category.id)}
+                      className={`flex items-center gap-1 rounded-full px-2 py-1 text-xs font-semibold ${
+                        category.isActive
+                          ? "bg-green-100 text-green-800"
+                          : "bg-red-100 text-red-800"
+                      }`}
+                    >
+                      {category.isActive ? (
+                        <Eye className="h-3 w-3" />
+                      ) : (
+                        <EyeOff className="h-3 w-3" />
+                      )}
+                      {category.isActive ? "Active" : "Inactive"}
+                    </button>
+                  </td>
+                  <td className="px-6 py-4">
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => handleEditCategory(category)}
+                        className="p-1 text-blue-600 hover:text-blue-800"
+                      >
+                        <Edit className="h-4 w-4" />
+                      </button>
+                      <button
+                        onClick={() => handleDeleteCategory(category.id)}
+                        className="p-1 text-red-600 hover:text-red-800"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    );
+  };
+
+  const renderLocationsTable = () => {
+    if (locationsLoading) {
+      return <LoadingSpinner />;
+    }
+
+    if (locations.length === 0) {
+      return (
+        <EmptyState message="No service locations found. Add your first location to get started." />
+      );
+    }
+
+    return (
+      <div className="rounded-lg bg-white shadow">
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead className="border-b bg-gray-50">
+              <tr>
+                <th className="px-6 py-3 text-left text-sm font-medium text-gray-500">
+                  Location
+                </th>
+                <th className="px-6 py-3 text-left text-sm font-medium text-gray-500">
+                  Region
+                </th>
+                <th className="px-6 py-3 text-left text-sm font-medium text-gray-500">
+                  County
+                </th>
+                <th className="px-6 py-3 text-left text-sm font-medium text-gray-500">
+                  Status
+                </th>
+                <th className="px-6 py-3 text-left text-sm font-medium text-gray-500">
+                  Actions
+                </th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-200">
+              {locations.map(location => (
+                <tr
+                  key={location.id}
+                  className={!location.isActive ? "opacity-50" : ""}
+                >
+                  <td className="px-6 py-4 text-sm font-medium text-gray-900">
+                    {location.name}
+                  </td>
+                  <td className="px-6 py-4 text-sm text-gray-600">
+                    {location.region}
+                  </td>
+                  <td className="px-6 py-4 text-sm text-gray-600">
+                    {location.county}
+                  </td>
+                  <td className="px-6 py-4">
+                    <button
+                      onClick={() => toggleLocationActive(location.id)}
+                      className={`flex items-center gap-1 rounded-full px-2 py-1 text-xs font-semibold ${
+                        location.isActive
+                          ? "bg-green-100 text-green-800"
+                          : "bg-red-100 text-red-800"
+                      }`}
+                    >
+                      {location.isActive ? (
+                        <Eye className="h-3 w-3" />
+                      ) : (
+                        <EyeOff className="h-3 w-3" />
+                      )}
+                      {location.isActive ? "Active" : "Inactive"}
+                    </button>
+                  </td>
+                  <td className="px-6 py-4">
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => handleEditLocation(location)}
+                        className="p-1 text-blue-600 hover:text-blue-800"
+                      >
+                        <Edit className="h-4 w-4" />
+                      </button>
+                      <button
+                        onClick={() => handleDeleteLocation(location.id)}
+                        className="p-1 text-red-600 hover:text-red-800"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    );
+  };
+
+  const renderSettingsGrid = () => {
+    if (settingsLoading) {
+      return <LoadingSpinner />;
+    }
+
+    if (settings.length === 0) {
+      return (
+        <EmptyState message="No system settings found. Add your first setting to get started." />
+      );
+    }
+
+    // Group settings by category
+    const groupedSettings = settings.reduce((acc: any, setting: any) => {
+      if (!acc[setting.category]) acc[setting.category] = [];
+      acc[setting.category].push(setting);
+      return acc;
+    }, {});
+
+    return (
+      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+        {Object.entries(groupedSettings).map(
+          ([category, categorySettings]: any) => (
+            <div key={category} className="rounded-lg bg-white p-6 shadow">
+              <h3 className="mb-4 text-lg font-semibold capitalize">
+                {category} Settings
+              </h3>
+              <div className="space-y-3">
+                {categorySettings.map((setting: any) => (
+                  <div
+                    key={setting.id}
+                    className="border-b pb-3 last:border-b-0"
+                  >
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1">
+                        <div className="text-sm font-medium text-gray-900">
+                          {setting.key}
+                        </div>
+                        {setting.description && (
+                          <div className="text-xs text-gray-500">
+                            {setting.description}
+                          </div>
+                        )}
+                        <div className="mt-1 text-sm text-gray-600">
+                          {typeof setting.value === "object"
+                            ? JSON.stringify(setting.value)
+                            : String(setting.value)}
+                        </div>
+                      </div>
+                      <div className="ml-2 flex items-center gap-1">
+                        <button
+                          onClick={() => handleEditSetting(setting)}
+                          className="p-1 text-blue-600 hover:text-blue-800"
+                        >
+                          <Edit className="h-3 w-3" />
+                        </button>
+                        <button
+                          onClick={() => handleDeleteSetting(setting.id)}
+                          className="p-1 text-red-600 hover:text-red-800"
+                        >
+                          <Trash2 className="h-3 w-3" />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )
+        )}
+      </div>
+    );
+  };
+
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="border-b bg-white px-6 py-4">
@@ -338,131 +715,9 @@ export default function AdminManagement() {
               </button>
             </div>
 
-            <div className="rounded-lg bg-white shadow">
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead className="border-b bg-gray-50">
-                    <tr>
-                      <th className="px-6 py-3 text-left text-sm font-medium text-gray-500">
-                        Order
-                      </th>
-                      <th className="px-6 py-3 text-left text-sm font-medium text-gray-500">
-                        Category
-                      </th>
-                      <th className="px-6 py-3 text-left text-sm font-medium text-gray-500">
-                        Value
-                      </th>
-                      <th className="px-6 py-3 text-left text-sm font-medium text-gray-500">
-                        Icon
-                      </th>
-                      <th className="px-6 py-3 text-left text-sm font-medium text-gray-500">
-                        Color
-                      </th>
-                      <th className="px-6 py-3 text-left text-sm font-medium text-gray-500">
-                        Status
-                      </th>
-                      <th className="px-6 py-3 text-left text-sm font-medium text-gray-500">
-                        Actions
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-200">
-                    {categories.map((category, index) => (
-                      <tr
-                        key={category.id}
-                        className={!category.isActive ? "opacity-50" : ""}
-                      >
-                        <td className="px-6 py-4">
-                          <div className="flex items-center gap-1">
-                            <span className="text-sm text-gray-600">
-                              {category.sortOrder}
-                            </span>
-                            <div className="flex flex-col">
-                              <button
-                                onClick={() =>
-                                  moveCategoryOrder(category.id, "up")
-                                }
-                                disabled={index === 0}
-                                className="p-1 text-gray-400 hover:text-gray-600 disabled:opacity-50"
-                              >
-                                <ChevronUp className="h-3 w-3" />
-                              </button>
-                              <button
-                                onClick={() =>
-                                  moveCategoryOrder(category.id, "down")
-                                }
-                                disabled={index === categories.length - 1}
-                                className="p-1 text-gray-400 hover:text-gray-600 disabled:opacity-50"
-                              >
-                                <ChevronDown className="h-3 w-3" />
-                              </button>
-                            </div>
-                          </div>
-                        </td>
-                        <td className="px-6 py-4">
-                          <div>
-                            <div className="text-sm font-medium text-gray-900">
-                              {category.label}
-                            </div>
-                            {category.description && (
-                              <div className="text-sm text-gray-500">
-                                {category.description}
-                              </div>
-                            )}
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 text-sm text-gray-600">
-                          {category.value}
-                        </td>
-                        <td className="px-6 py-4 text-sm text-gray-600">
-                          {category.icon}
-                        </td>
-                        <td className="px-6 py-4">
-                          <span
-                            className={`inline-flex rounded-full px-2 py-1 text-xs font-semibold ${category.colorClass}`}
-                          >
-                            Sample
-                          </span>
-                        </td>
-                        <td className="px-6 py-4">
-                          <button
-                            onClick={() => toggleCategoryActive(category.id)}
-                            className={`flex items-center gap-1 rounded-full px-2 py-1 text-xs font-semibold ${
-                              category.isActive
-                                ? "bg-green-100 text-green-800"
-                                : "bg-red-100 text-red-800"
-                            }`}
-                          >
-                            {category.isActive ? (
-                              <Eye className="h-3 w-3" />
-                            ) : (
-                              <EyeOff className="h-3 w-3" />
-                            )}
-                            {category.isActive ? "Active" : "Inactive"}
-                          </button>
-                        </td>
-                        <td className="px-6 py-4">
-                          <div className="flex items-center gap-2">
-                            <button
-                              onClick={() => handleEditCategory(category)}
-                              className="p-1 text-blue-600 hover:text-blue-800"
-                            >
-                              <Edit className="h-4 w-4" />
-                            </button>
-                            <button
-                              onClick={() => handleDeleteCategory(category.id)}
-                              className="p-1 text-red-600 hover:text-red-800"
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
+            {categoriesError && <ErrorMessage error={categoriesError} />}
+
+            {renderTableContent()}
           </div>
         )}
 
@@ -480,82 +735,9 @@ export default function AdminManagement() {
               </button>
             </div>
 
-            <div className="rounded-lg bg-white shadow">
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead className="border-b bg-gray-50">
-                    <tr>
-                      <th className="px-6 py-3 text-left text-sm font-medium text-gray-500">
-                        Location
-                      </th>
-                      <th className="px-6 py-3 text-left text-sm font-medium text-gray-500">
-                        Region
-                      </th>
-                      <th className="px-6 py-3 text-left text-sm font-medium text-gray-500">
-                        County
-                      </th>
-                      <th className="px-6 py-3 text-left text-sm font-medium text-gray-500">
-                        Status
-                      </th>
-                      <th className="px-6 py-3 text-left text-sm font-medium text-gray-500">
-                        Actions
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-200">
-                    {locations.map(location => (
-                      <tr
-                        key={location.id}
-                        className={!location.isActive ? "opacity-50" : ""}
-                      >
-                        <td className="px-6 py-4 text-sm font-medium text-gray-900">
-                          {location.name}
-                        </td>
-                        <td className="px-6 py-4 text-sm text-gray-600">
-                          {location.region}
-                        </td>
-                        <td className="px-6 py-4 text-sm text-gray-600">
-                          {location.county}
-                        </td>
-                        <td className="px-6 py-4">
-                          <button
-                            onClick={() => toggleLocationActive(location.id)}
-                            className={`flex items-center gap-1 rounded-full px-2 py-1 text-xs font-semibold ${
-                              location.isActive
-                                ? "bg-green-100 text-green-800"
-                                : "bg-red-100 text-red-800"
-                            }`}
-                          >
-                            {location.isActive ? (
-                              <Eye className="h-3 w-3" />
-                            ) : (
-                              <EyeOff className="h-3 w-3" />
-                            )}
-                            {location.isActive ? "Active" : "Inactive"}
-                          </button>
-                        </td>
-                        <td className="px-6 py-4">
-                          <div className="flex items-center gap-2">
-                            <button
-                              onClick={() => handleEditLocation(location)}
-                              className="p-1 text-blue-600 hover:text-blue-800"
-                            >
-                              <Edit className="h-4 w-4" />
-                            </button>
-                            <button
-                              onClick={() => handleDeleteLocation(location.id)}
-                              className="p-1 text-red-600 hover:text-red-800"
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
+            {locationsError && <ErrorMessage error={locationsError} />}
+
+            {renderLocationsTable()}
           </div>
         )}
 
@@ -573,61 +755,9 @@ export default function AdminManagement() {
               </button>
             </div>
 
-            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-              {Object.entries(
-                settings.reduce((acc: any, setting: any) => {
-                  if (!acc[setting.category]) acc[setting.category] = [];
-                  acc[setting.category].push(setting);
-                  return acc;
-                }, {})
-              ).map(([category, categorySettings]: any) => (
-                <div key={category} className="rounded-lg bg-white p-6 shadow">
-                  <h3 className="mb-4 text-lg font-semibold capitalize">
-                    {category} Settings
-                  </h3>
-                  <div className="space-y-3">
-                    {categorySettings.map((setting: any) => (
-                      <div
-                        key={setting.id}
-                        className="border-b pb-3 last:border-b-0"
-                      >
-                        <div className="flex items-start justify-between">
-                          <div className="flex-1">
-                            <div className="text-sm font-medium text-gray-900">
-                              {setting.key}
-                            </div>
-                            {setting.description && (
-                              <div className="text-xs text-gray-500">
-                                {setting.description}
-                              </div>
-                            )}
-                            <div className="mt-1 text-sm text-gray-600">
-                              {typeof setting.value === "object"
-                                ? JSON.stringify(setting.value)
-                                : String(setting.value)}
-                            </div>
-                          </div>
-                          <div className="ml-2 flex items-center gap-1">
-                            <button
-                              onClick={() => handleEditSetting(setting)}
-                              className="p-1 text-blue-600 hover:text-blue-800"
-                            >
-                              <Edit className="h-3 w-3" />
-                            </button>
-                            <button
-                              onClick={() => handleDeleteSetting(setting.id)}
-                              className="p-1 text-red-600 hover:text-red-800"
-                            >
-                              <Trash2 className="h-3 w-3" />
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              ))}
-            </div>
+            {settingsError && <ErrorMessage error={settingsError} />}
+
+            {renderSettingsGrid()}
           </div>
         )}
       </div>
@@ -730,9 +860,9 @@ export default function AdminManagement() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700">
+                <Label className="block text-sm font-medium text-gray-700">
                   Description
-                </label>
+                </Label>
                 <textarea
                   value={categoryForm.description}
                   onChange={e =>
@@ -745,6 +875,74 @@ export default function AdminManagement() {
                   rows={3}
                   placeholder="Optional description"
                 />
+              </div>
+
+              <div>
+                <Label className="mb-2 block text-sm font-medium text-gray-700">
+                  Rate Suggestions (KES)
+                </Label>
+                <div className="grid grid-cols-3 gap-3">
+                  <div>
+                    <label className="mb-1 block text-xs font-medium text-gray-600">
+                      Minimum
+                    </label>
+                    <input
+                      type="number"
+                      value={categoryForm.rateMin || 500}
+                      onChange={e =>
+                        setCategoryForm({
+                          ...categoryForm,
+                          rateMin: parseInt(e.target.value) || 500,
+                        })
+                      }
+                      className="block w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none"
+                      min="100"
+                      max="50000"
+                      placeholder="500"
+                    />
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-xs font-medium text-gray-600">
+                      Typical
+                    </label>
+                    <input
+                      type="number"
+                      value={categoryForm.rateTypical || 1000}
+                      onChange={e =>
+                        setCategoryForm({
+                          ...categoryForm,
+                          rateTypical: parseInt(e.target.value) || 1000,
+                        })
+                      }
+                      className="block w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none"
+                      min="100"
+                      max="50000"
+                      placeholder="1000"
+                    />
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-xs font-medium text-gray-600">
+                      Maximum
+                    </label>
+                    <input
+                      type="number"
+                      value={categoryForm.rateMax || 2000}
+                      onChange={e =>
+                        setCategoryForm({
+                          ...categoryForm,
+                          rateMax: parseInt(e.target.value) || 2000,
+                        })
+                      }
+                      className="block w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none"
+                      min="100"
+                      max="50000"
+                      placeholder="2000"
+                    />
+                  </div>
+                </div>
+                <p className="mt-1 text-xs text-gray-500">
+                  Suggested hourly rates for this service category
+                </p>
               </div>
 
               <div className="flex items-center">

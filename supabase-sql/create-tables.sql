@@ -333,6 +333,55 @@ VALUES ('John Mwangi', 'john.mwangi@email.com', '+254712345678',
  'Lavington', 4.7, 92, 1250,
  'Reliable plumber and maintenance expert. Specializes in emergency repairs and installations.', 7, 'approved');
 
+-- Add rate suggestion fields to service_categories table
+ALTER TABLE service_categories
+    ADD COLUMN rate_min INTEGER DEFAULT 500,
+ADD COLUMN rate_typical INTEGER DEFAULT 1000,
+ADD COLUMN rate_max INTEGER DEFAULT 2000;
+
+-- Update existing categories with rate suggestions
+UPDATE service_categories
+SET rate_min     = 800,
+    rate_typical = 1200,
+    rate_max     = 2000
+WHERE value = 'electrical';
+
+UPDATE service_categories
+SET rate_min     = 1000,
+    rate_typical = 1500,
+    rate_max     = 2500
+WHERE value = 'plumbing';
+
+UPDATE service_categories
+SET rate_min     = 1200,
+    rate_typical = 1800,
+    rate_max     = 3000
+WHERE value = 'automotive';
+
+UPDATE service_categories
+SET rate_min     = 1000,
+    rate_typical = 1600,
+    rate_max     = 2800
+WHERE value = 'hvac';
+
+UPDATE service_categories
+SET rate_min     = 800,
+    rate_typical = 1300,
+    rate_max     = 2200
+WHERE value = 'carpentry';
+
+UPDATE service_categories
+SET rate_min     = 600,
+    rate_typical = 1000,
+    rate_max     = 1800
+WHERE value = 'painting';
+
+UPDATE service_categories
+SET rate_min     = 500,
+    rate_typical = 900,
+    rate_max     = 1500
+WHERE value = 'general_maintenance';
+
 -- =======================
 -- ENABLE ROW LEVEL SECURITY
 -- =======================
@@ -538,6 +587,7 @@ CREATE INDEX idx_conversations_provider_id ON conversations (provider_id);
 CREATE INDEX idx_messages_service_request_id ON messages (service_request_id);
 CREATE INDEX idx_reports_status ON reports (status);
 CREATE INDEX idx_reports_report_type ON reports (report_type);
+CREATE INDEX idx_service_categories_rates ON service_categories (rate_typical DESC) WHERE is_active = true;
 
 -- Dynamic system indexes
 CREATE INDEX idx_service_categories_active ON service_categories (is_active, sort_order);

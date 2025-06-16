@@ -110,6 +110,7 @@ export function useReviews(options: UseReviewsOptions = {}) {
           providerId: reviewData.providerId,
           rating: reviewData.rating,
           comment: reviewData.comment,
+          created_at: new Date(),
         });
 
         // Refresh reviews if we're viewing this provider

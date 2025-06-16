@@ -32,8 +32,12 @@ import {
   SelectValue,
   Textarea,
 } from "@/components/ui";
-import { KENYAN_LOCATIONS, SERVICE_CATEGORIES } from "@/constants";
 import { useAuth } from "@/contexts";
+import {
+  useRateSuggestions,
+  useServiceCategories,
+  useServiceLocations,
+} from "@/hooks";
 import { signIn, signUp } from "@/lib/services/auth";
 import { createServiceProvider } from "@/lib/services/providers";
 import { supabase } from "@/lib/supabase";
@@ -75,20 +79,12 @@ const EXPERIENCE_LEVELS = [
   { value: 15, label: "15+ years", description: "Expert level" },
 ];
 
-const RATE_SUGGESTIONS = {
-  electrical: { min: 800, typical: 1200, max: 2000 },
-  plumbing: { min: 1000, typical: 1500, max: 2500 },
-  automotive: { min: 1200, typical: 1800, max: 3000 },
-  hvac: { min: 1000, typical: 1600, max: 2800 },
-  carpentry: { min: 800, typical: 1300, max: 2200 },
-  painting: { min: 600, typical: 1000, max: 1800 },
-  general_maintenance: { min: 500, typical: 900, max: 1500 },
-};
-
 export default function ProviderSignupPage() {
   const { user } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { locations } = useServiceLocations();
+  const { categories } = useServiceCategories();
 
   const [currentStep, setCurrentStep] = useState<SignupStep>("personal");
   const [loading, setLoading] = useState(false);
@@ -108,6 +104,12 @@ export default function ProviderSignupPage() {
     bio: "",
     agreedToTerms: false,
   });
+
+  const {
+    suggestions: rateSuggestions,
+    suggestedRate,
+    loading: rateSuggestionsLoading,
+  } = useRateSuggestions(formData.services);
 
   // Initialize form data and step from URL params and user state
   useEffect(() => {
@@ -159,6 +161,19 @@ export default function ProviderSignupPage() {
     }
   }, [user, searchParams, router]);
 
+  useEffect(() => {
+    if (
+      suggestedRate &&
+      suggestedRate !== formData.hourlyRate &&
+      formData.services.length > 0
+    ) {
+      setFormData(prev => ({
+        ...prev,
+        hourlyRate: suggestedRate,
+      }));
+    }
+  }, [suggestedRate, formData.services.length, formData.hourlyRate]);
+
   // Update URL when step changes
   const updateUrlStep = (
     step: SignupStep,
@@ -194,22 +209,6 @@ export default function ProviderSignupPage() {
         ? prev.services.filter(s => s !== service)
         : [...prev.services, service],
     }));
-
-    // Update rate suggestion based on selected services
-    if (!formData.services.includes(service)) {
-      const newServices = [...formData.services, service];
-      const avgRate =
-        newServices.reduce((sum, s) => {
-          const suggestion =
-            RATE_SUGGESTIONS[s] || RATE_SUGGESTIONS.general_maintenance;
-          return sum + suggestion.typical;
-        }, 0) / newServices.length;
-
-      setFormData(prev => ({
-        ...prev,
-        hourlyRate: Math.round(avgRate),
-      }));
-    }
   };
 
   const validateStep = (step: SignupStep): boolean => {
@@ -420,7 +419,7 @@ export default function ProviderSignupPage() {
         location: formData.location,
         rating: 0,
         totalJobs: 0,
-        verified: false,
+        verificationStatus: "pending",
         hourlyRate: Number(formData.hourlyRate), // Ensure it's a number
         bio: formData.bio,
         experienceYears: Number(formData.experienceYears), // Ensure it's a number
@@ -527,9 +526,9 @@ export default function ProviderSignupPage() {
               <SelectValue placeholder="Select your location" />
             </SelectTrigger>
             <SelectContent>
-              {KENYAN_LOCATIONS.map(location => (
-                <SelectItem key={location} value={location}>
-                  {location}
+              {locations.map(location => (
+                <SelectItem key={location.id} value={location.id}>
+                  {location.name}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -664,8 +663,8 @@ export default function ProviderSignupPage() {
       </div>
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-        {SERVICE_CATEGORIES.map(category => {
-          const Icon = category.icon;
+        {categories.map(category => {
+          // const Icon = category.icon;
           const isSelected = formData.services.includes(
             category.value as ServiceCategory
           );
@@ -684,9 +683,9 @@ export default function ProviderSignupPage() {
             >
               <CardContent className="p-4">
                 <div className="flex items-center space-x-3">
-                  <Icon
-                    className={`h-8 w-8 ${isSelected ? "text-green-600" : "text-gray-500"}`}
-                  />
+                  {/* <Icon*/}
+                  {/*  className={`h-8 w-8 ${isSelected ? "text-green-600" : "text-gray-500"}`}*/}
+                  {/* />*/}
                   <div className="flex-1">
                     <h3 className="font-medium">{category.label}</h3>
                     <p className="text-sm text-gray-600">
@@ -710,9 +709,7 @@ export default function ProviderSignupPage() {
           </h4>
           <div className="flex flex-wrap gap-2">
             {formData.services.map(service => {
-              const category = SERVICE_CATEGORIES.find(
-                c => c.value === service
-              );
+              const category = categories.find(c => c.value === service);
               return (
                 <Badge key={service} className="bg-green-100 text-green-800">
                   {category?.label}
@@ -783,36 +780,49 @@ export default function ProviderSignupPage() {
               className="pl-10"
               min="100"
               max="10000"
+              disabled={rateSuggestionsLoading}
             />
-          </div>
-          {formData.services.length > 0 && (
-            <div className="mt-2 rounded-lg bg-blue-50 p-3">
-              <p className="mb-2 text-sm text-blue-800">
-                Suggested rates for your services:
-              </p>
-              <div className="space-y-1 text-xs text-blue-600">
-                {formData.services.map(service => {
-                  const suggestion =
-                    RATE_SUGGESTIONS[service] ||
-                    RATE_SUGGESTIONS.general_maintenance;
-                  return (
-                    <div key={service} className="flex justify-between">
-                      <span>
-                        {
-                          SERVICE_CATEGORIES.find(c => c.value === service)
-                            ?.label
-                        }
-                        :
-                      </span>
-                      <span>
-                        KES {suggestion.min} - {suggestion.max}
-                      </span>
-                    </div>
-                  );
-                })}
+            {rateSuggestionsLoading && (
+              <div className="absolute top-1/2 right-3 -translate-y-1/2">
+                <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-600 border-t-transparent" />
               </div>
-            </div>
-          )}
+            )}
+          </div>
+          {formData.services.length > 0 &&
+            !rateSuggestionsLoading &&
+            Object.keys(rateSuggestions).length > 0 && (
+              <div className="mt-2 rounded-lg bg-blue-50 p-3">
+                <p className="mb-2 text-sm text-blue-800">
+                  Suggested rates for your services:
+                </p>
+                <div className="space-y-1 text-xs text-blue-600">
+                  {formData.services.map(service => {
+                    const suggestion = rateSuggestions[service];
+                    const category = categories.find(c => c.value === service);
+
+                    if (!suggestion) return null;
+
+                    return (
+                      <div key={service} className="flex justify-between">
+                        <span>{category?.label}:</span>
+                        <span>
+                          KES {suggestion.min.toLocaleString()} -{" "}
+                          {suggestion.max.toLocaleString()}
+                        </span>
+                      </div>
+                    );
+                  })}
+                  {suggestedRate && (
+                    <div className="mt-2 border-t pt-1 font-medium">
+                      <div className="flex justify-between">
+                        <span>Recommended Rate:</span>
+                        <span>KES {suggestedRate.toLocaleString()}</span>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
         </div>
 
         <div>
@@ -884,9 +894,7 @@ export default function ProviderSignupPage() {
               <span className="text-gray-600">Services:</span>
               <div className="mt-1 flex flex-wrap gap-2">
                 {formData.services.map(service => {
-                  const category = SERVICE_CATEGORIES.find(
-                    c => c.value === service
-                  );
+                  const category = categories.find(c => c.value === service);
                   return (
                     <Badge
                       key={service}
