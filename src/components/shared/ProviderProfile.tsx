@@ -29,10 +29,11 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui";
-import { SERVICE_CATEGORIES } from "@/constants";
-import { useReviews } from "@/hooks";
+import { useReviews, useServiceCategories } from "@/hooks";
 import { formatPrice } from "@/lib/formats";
 import { cn } from "@/lib/utils";
+
+import ReportModal from "./ReportModal";
 
 import type { ServiceProvider } from "@/types";
 
@@ -46,7 +47,8 @@ interface ProviderProfileProps {
 }
 
 function ServiceBadge({ serviceValue }: { serviceValue: string }) {
-  const category = SERVICE_CATEGORIES.find(cat => cat.value === serviceValue);
+  const { categories } = useServiceCategories();
+  const category = categories.find(cat => cat.value === serviceValue);
   const Icon = category?.icon || Briefcase;
 
   return (
@@ -280,6 +282,13 @@ export function ProviderProfile({
           </div>
         </DialogContent>
       </Dialog>
+
+      <ReportModal
+        reportedProviderId={provider.id}
+        reportedName={provider.name}
+        triggerText="Report Provider"
+        triggerVariant="outline"
+      />
     </div>
   );
 }

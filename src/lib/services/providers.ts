@@ -12,6 +12,7 @@ interface ServiceProviderFilters {
   sortOrder?: "asc" | "desc";
   limit?: number;
   offset?: number;
+  includeUnverified?: boolean;
 }
 
 export async function getServiceProviders(filters?: ServiceProviderFilters) {
@@ -19,7 +20,12 @@ export async function getServiceProviders(filters?: ServiceProviderFilters) {
     let query = supabase
       .from("service_providers")
       .select("*")
-      .eq("verified", true);
+      .eq("is_blocked", false); // Always exclude blocked providers
+
+    // By default, only show approved providers (unless explicitly requesting unverified)
+    if (!filters?.includeUnverified) {
+      query = query.eq("verification_status", "approved");
+    }
 
     // Apply category filter
     if (filters?.category) {
@@ -97,11 +103,13 @@ export async function getServiceProviders(filters?: ServiceProviderFilters) {
       location: item.location,
       rating: item.rating,
       totalJobs: item.total_jobs,
-      verified: item.verified,
+      verified: item.verification_status === "approved", // Computed from verification_status
+      verificationStatus: item.verification_status,
       avatar: item.avatar,
       hourlyRate: item.hourly_rate,
       bio: item.bio,
       experienceYears: item.experience_years,
+      isBlocked: item.is_blocked,
       createdAt: item.created_at ? new Date(item.created_at) : undefined,
       updatedAt: item.updated_at ? new Date(item.updated_at) : undefined,
     })) as ServiceProvider[];
@@ -141,11 +149,13 @@ export async function getServiceProviderById(
       location: data.location,
       rating: data.rating,
       totalJobs: data.total_jobs,
-      verified: data.verified,
+      verified: data.verification_status === "approved", // Computed from verification_status
+      verificationStatus: data.verification_status,
       avatar: data.avatar,
       hourlyRate: data.hourly_rate,
       bio: data.bio,
       experienceYears: data.experience_years,
+      isBlocked: data.is_blocked,
       createdAt: data.created_at ? new Date(data.created_at) : undefined,
       updatedAt: data.updated_at ? new Date(data.updated_at) : undefined,
     } as ServiceProvider;
@@ -200,14 +210,14 @@ export async function getServiceProviderByEmail(
 }
 
 export async function createServiceProvider(
-  provider: Omit<ServiceProvider, "createdAt" | "updatedAt"> // Remove "id" from Omit
+  provider: Omit<ServiceProvider, "createdAt" | "updatedAt" | "verified">
 ) {
   try {
     const { data, error } = await supabase
       .from("service_providers")
       .insert([
         {
-          id: provider.id, // ← Add this line
+          id: provider.id,
           name: provider.name,
           email: provider.email,
           phone: provider.phone,
@@ -215,11 +225,12 @@ export async function createServiceProvider(
           location: provider.location,
           rating: provider.rating || 0,
           total_jobs: provider.totalJobs || 0,
-          verified: provider.verified || false,
+          verification_status: provider.verificationStatus || "pending", // Use verification_status instead of verified
           avatar: provider.avatar,
           hourly_rate: provider.hourlyRate,
           bio: provider.bio,
           experience_years: provider.experienceYears || 0,
+          verification_requested_at: new Date().toISOString(), // Set when provider signs up
         },
       ])
       .select()
@@ -240,11 +251,13 @@ export async function createServiceProvider(
       location: data.location,
       rating: data.rating,
       totalJobs: data.total_jobs,
-      verified: data.verified,
+      verified: data.verification_status === "approved",
+      verificationStatus: data.verification_status,
       avatar: data.avatar,
       hourlyRate: data.hourly_rate,
       bio: data.bio,
       experienceYears: data.experience_years,
+      isBlocked: data.is_blocked,
       createdAt: data.created_at ? new Date(data.created_at) : undefined,
       updatedAt: data.updated_at ? new Date(data.updated_at) : undefined,
     } as ServiceProvider;
@@ -269,13 +282,26 @@ export async function updateServiceProvider(
     if (updates.rating !== undefined) updateData.rating = updates.rating;
     if (updates.totalJobs !== undefined)
       updateData.total_jobs = updates.totalJobs;
-    if (updates.verified !== undefined) updateData.verified = updates.verified;
+
+    // Handle verification status updates
+    if (updates.verified !== undefined) {
+      // If someone passes the old 'verified' boolean, convert it to verification_status
+      updateData.verification_status = updates.verified
+        ? "approved"
+        : "pending";
+    }
+    if (updates.verificationStatus !== undefined) {
+      updateData.verification_status = updates.verificationStatus;
+    }
+
     if (updates.avatar !== undefined) updateData.avatar = updates.avatar;
     if (updates.hourlyRate !== undefined)
       updateData.hourly_rate = updates.hourlyRate;
     if (updates.bio !== undefined) updateData.bio = updates.bio;
     if (updates.experienceYears !== undefined)
       updateData.experience_years = updates.experienceYears;
+    if (updates.isBlocked !== undefined)
+      updateData.is_blocked = updates.isBlocked;
 
     const { data, error } = await supabase
       .from("service_providers")
@@ -299,11 +325,13 @@ export async function updateServiceProvider(
       location: data.location,
       rating: data.rating,
       totalJobs: data.total_jobs,
-      verified: data.verified,
+      verified: data.verification_status === "approved",
+      verificationStatus: data.verification_status,
       avatar: data.avatar,
       hourlyRate: data.hourly_rate,
       bio: data.bio,
       experienceYears: data.experience_years,
+      isBlocked: data.is_blocked,
       createdAt: data.created_at ? new Date(data.created_at) : undefined,
       updatedAt: data.updated_at ? new Date(data.updated_at) : undefined,
     } as ServiceProvider;
@@ -313,6 +341,68 @@ export async function updateServiceProvider(
   }
 }
 
+// New function to check if provider can receive jobs
+export async function canProviderReceiveJobs(
+  providerId: string
+): Promise<boolean> {
+  try {
+    const { data, error } = await supabase.rpc("can_provider_receive_jobs", {
+      provider_id: providerId,
+    });
+
+    if (error) {
+      console.error("Error checking provider job eligibility:", error);
+      return false;
+    }
+
+    return data || false;
+  } catch (error) {
+    console.error("Error in canProviderReceiveJobs:", error);
+    return false;
+  }
+}
+
+export async function getProvidersByVerificationStatus(
+  status: "pending" | "approved" | "rejected"
+): Promise<ServiceProvider[]> {
+  try {
+    const { data, error } = await supabase
+      .from("service_providers")
+      .select("*")
+      .eq("verification_status", status)
+      .order("created_at", { ascending: false });
+
+    if (error) {
+      console.error("Error fetching providers by verification status:", error);
+      return [];
+    }
+
+    return (data || []).map(item => ({
+      id: item.id,
+      name: item.name,
+      email: item.email,
+      phone: item.phone,
+      services: item.services,
+      location: item.location,
+      rating: item.rating,
+      totalJobs: item.total_jobs,
+      verified: item.verification_status === "approved",
+      verificationStatus: item.verification_status,
+      avatar: item.avatar,
+      hourlyRate: item.hourly_rate,
+      bio: item.bio,
+      experienceYears: item.experience_years,
+      isBlocked: item.is_blocked,
+      createdAt: item.created_at ? new Date(item.created_at) : undefined,
+      updatedAt: item.updated_at ? new Date(item.updated_at) : undefined,
+    })) as ServiceProvider[];
+  } catch (error) {
+    console.error("Error in getProvidersByVerificationStatus:", error);
+    return [];
+  }
+}
+
+// Rest of your existing functions remain the same...
 export async function deleteServiceProvider(id: string) {
   try {
     const { error } = await supabase
@@ -336,8 +426,9 @@ export async function getProviderStats() {
   try {
     const { data, error } = await supabase
       .from("service_providers")
-      .select("rating, total_jobs, location, services")
-      .eq("verified", true);
+      .select("rating, total_jobs, location, services, verification_status")
+      .eq("verification_status", "approved") // Only count approved providers
+      .eq("is_blocked", false);
 
     if (error) {
       console.error("Error fetching provider stats:", error);
@@ -412,7 +503,8 @@ export async function searchProvidersByService(service: string, limit = 10) {
     const { data, error } = await supabase
       .from("service_providers")
       .select("id, name, rating, location, hourly_rate")
-      .eq("verified", true)
+      .eq("verification_status", "approved") // Only approved providers
+      .eq("is_blocked", false)
       .contains("services", [service])
       .order("rating", { ascending: false })
       .limit(limit);

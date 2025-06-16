@@ -1,4 +1,3 @@
-// src/app/(public)/my-requests/page.tsx - Updated with Review Integration
 "use client";
 
 import { useMemo, useState } from "react";
@@ -46,8 +45,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui";
-import { SERVICE_CATEGORIES } from "@/constants";
-import { useServiceRequests } from "@/hooks/useServiceRequests";
+import { useServiceCategories, useServiceRequests } from "@/hooks";
 import { getStatusColor, getUrgencyColor } from "@/lib/colors";
 import { formatDate, formatPrice } from "@/lib/formats";
 import {
@@ -77,6 +75,7 @@ export default function MyRequestsPage() {
     error: requestsError,
     refetch: refetchRequests,
   } = useServiceRequests();
+  const { categories } = useServiceCategories();
 
   // State for filtering and sorting
   const [searchTerm, setSearchTerm] = useState("");
@@ -240,7 +239,7 @@ export default function MyRequestsPage() {
 
   // Get category info
   const getCategoryInfo = (categoryValue: string) => {
-    return SERVICE_CATEGORIES.find(cat => cat.value === categoryValue);
+    return categories.find(cat => cat.value === categoryValue);
   };
 
   // Handle review submission
@@ -376,8 +375,8 @@ export default function MyRequestsPage() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">All Categories</SelectItem>
-                    {SERVICE_CATEGORIES.map(category => (
-                      <SelectItem key={category.value} value={category.value}>
+                    {categories.map(category => (
+                      <SelectItem key={category.id} value={category.id}>
                         {category.label}
                       </SelectItem>
                     ))}

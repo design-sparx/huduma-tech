@@ -37,8 +37,11 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { KENYAN_LOCATIONS, SERVICE_CATEGORIES } from "@/constants";
-import { useServiceProviders } from "@/hooks";
+import {
+  useServiceCategories,
+  useServiceLocations,
+  useServiceProviders,
+} from "@/hooks";
 import { formatPrice } from "@/lib/formats";
 
 import type { ServiceCategory, ServiceProvider } from "@/types";
@@ -88,6 +91,8 @@ export default function SearchPage() {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
+  const { categories } = useServiceCategories();
+  const { locations } = useServiceLocations();
 
   // Initialize filters from URL params
   const [filters, setFilters] = useState<SearchFilters>({
@@ -295,8 +300,8 @@ export default function SearchPage() {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All Categories</SelectItem>
-              {SERVICE_CATEGORIES.map(category => (
-                <SelectItem key={category.value} value={category.value}>
+              {categories.map(category => (
+                <SelectItem key={category.id} value={category.id}>
                   {category.label}
                 </SelectItem>
               ))}
@@ -315,9 +320,9 @@ export default function SearchPage() {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All Locations</SelectItem>
-              {KENYAN_LOCATIONS.map(location => (
-                <SelectItem key={location} value={location}>
-                  {location}
+              {locations.map(location => (
+                <SelectItem key={location.id} value={location.id}>
+                  {location.name}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -483,10 +488,7 @@ export default function SearchPage() {
 
             {filters.category && (
               <Badge variant="secondary" className="gap-1">
-                {
-                  SERVICE_CATEGORIES.find(c => c.value === filters.category)
-                    ?.label
-                }
+                {categories.find(c => c.value === filters.category)?.label}
                 <X
                   className="h-3 w-3 cursor-pointer"
                   onClick={() => updateFilter("category", "")}
@@ -648,7 +650,7 @@ export default function SearchPage() {
                 <h4 className="mb-2 text-sm font-medium">Services:</h4>
                 <div className="flex flex-wrap gap-1">
                   {provider.services.slice(0, 3).map(service => {
-                    const category = SERVICE_CATEGORIES.find(
+                    const category = categories.find(
                       cat => cat.value === service
                     );
                     return (

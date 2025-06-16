@@ -31,7 +31,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui";
-import { KENYAN_LOCATIONS, SERVICE_CATEGORIES } from "@/constants";
+import { useServiceCategories, useServiceLocations } from "@/hooks";
 import { useServiceProviders } from "@/hooks/useServiceProviders";
 import { formatPrice } from "@/lib/formats";
 import { cn } from "@/lib/utils";
@@ -56,6 +56,8 @@ export function ProviderSearch({
   className,
 }: ProviderSearchProps) {
   const router = useRouter();
+  const { categories } = useServiceCategories();
+  const { locations } = useServiceLocations();
 
   // Search state
   const [searchTerm, setSearchTerm] = useState("");
@@ -105,7 +107,7 @@ export function ProviderSearch({
 
   // Get category info
   const getCategoryInfo = (categoryValue: string) => {
-    return SERVICE_CATEGORIES.find(cat => cat.value === categoryValue);
+    return categories.find(cat => cat.value === categoryValue);
   };
 
   const displayedProviders = maxResults
@@ -143,12 +145,12 @@ export function ProviderSearch({
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Categories</SelectItem>
-                  {SERVICE_CATEGORIES.map(cat => {
-                    const Icon = cat.icon;
+                  {categories.map(cat => {
+                    // const Icon = cat.icon;
                     return (
                       <SelectItem key={cat.value} value={cat.value}>
                         <div className="flex items-center gap-2">
-                          <Icon className="h-4 w-4" />
+                          {/* <Icon className="h-4 w-4" />*/}
                           {cat.label}
                         </div>
                       </SelectItem>
@@ -168,11 +170,11 @@ export function ProviderSearch({
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Locations</SelectItem>
-                  {KENYAN_LOCATIONS.map(loc => (
-                    <SelectItem key={loc} value={loc}>
+                  {locations.map(loc => (
+                    <SelectItem key={loc.id} value={loc.id}>
                       <div className="flex items-center gap-2">
                         <MapPin className="h-4 w-4" />
-                        {loc}
+                        {loc.name}
                       </div>
                     </SelectItem>
                   ))}

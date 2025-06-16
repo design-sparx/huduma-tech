@@ -1,4 +1,3 @@
-// src/components/shared/ReviewList.tsx
 "use client";
 
 import { useState } from "react";

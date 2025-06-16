@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 
-import { AuthModal } from "@/components/shared";
+import { AuthModal } from "@/components/auth";
 import { useAuth } from "@/contexts";
 
 import { Header, MobileNav } from "./components";
