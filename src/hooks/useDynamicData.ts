@@ -250,7 +250,7 @@ export function useRateSuggestions(serviceCategories: string[]) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchSuggestions = async () => {
+  const fetchSuggestions = useCallback(async () => {
     if (serviceCategories.length === 0) {
       setSuggestions({});
       setSuggestedRate(1000);
@@ -276,7 +276,7 @@ export function useRateSuggestions(serviceCategories: string[]) {
     } finally {
       setLoading(false);
     }
-  };
+  }, [serviceCategories]);
 
   useEffect(() => {
     fetchSuggestions();

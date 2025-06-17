@@ -110,6 +110,7 @@ const eslintConfig = [
       "*.config.js",
       "*.config.mjs",
       "*.config.ts",
+      ".release-it.json",
     ],
     settings: {
       "import/resolver": {
