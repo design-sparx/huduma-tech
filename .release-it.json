@@ -11,8 +11,5 @@
   },
   "npm": {
     "publish": false
-  },
-  "hooks": {
-    "before:init": ["npm run lint", "npm run format"]
   }
 }
